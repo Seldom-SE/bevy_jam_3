@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <meta http-equiv="expires" content="0">
+    <link rel="preload" href="/bevy_jam_3_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+    <link rel="modulepreload" href="/bevy_jam_3.js">
+</head>
+
+<body style="background-color: #111;">
+    <script type="module">
+        // TODO Allow context menu on the rest of the page
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        import init from '/bevy_jam_3.js';
+        init('/bevy_jam_3_bg.wasm');
+    </script>
+</body>
+
+</html>
