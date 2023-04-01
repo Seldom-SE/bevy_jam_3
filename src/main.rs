@@ -1,11 +1,12 @@
+mod camera;
+mod day_night;
 mod map;
 mod player;
 
-use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
 use bevy::render::view::RenderLayers;
-use bevy::sprite::MaterialMesh2dBundle;
-use bevy::window::{PrimaryWindow, WindowRef};
+use camera::camera_plugin;
+use day_night::day_night_plugin;
 use map::{get_floor_z, get_object_z};
 use player::player_plugin;
 use rand::prelude::*;
@@ -52,7 +53,9 @@ fn main() {
                 }),
         )
         .add_plugin(BevyMagicLight2DPlugin)
+        .fn_plugin(camera_plugin)
         .fn_plugin(player_plugin)
+        .fn_plugin(day_night_plugin)
         .insert_resource(BevyMagicLight2DSettings {
             light_pass_params: LightPassParams {
                 reservoir_size: 16,
@@ -63,16 +66,12 @@ fn main() {
             },
         })
         .add_startup_system(setup.after(setup_post_processing_camera))
-        .add_system(system_control_mouse_light)
         .run();
 }
 
 #[rustfmt::skip]
 fn setup(
     mut commands:               Commands,
-    mut meshes:                 ResMut<Assets<Mesh>>,
-    mut materials:              ResMut<Assets<ColorMaterial>>,
-        post_processing_target: Res<PostProcessingTarget>,
         asset_server:           Res<AssetServer>,
     mut texture_atlases:        ResMut<Assets<TextureAtlas>>,
 ) {
@@ -120,7 +119,6 @@ fn setup(
         center_offset + Vec2::new((j as f32) * block_size.x, -(i as f32) * block_size.y)
     };
 
-    let block_mesh = meshes.add(Mesh::from(shape::Quad::default()));
     let mut walls = vec![];
 
     // Load floor tiles.
@@ -677,187 +675,35 @@ fn setup(
         .spawn(SpatialBundle::default())
         .insert(Name::new("lights"))
         .push_children(&lights);
-
-    // Add roofs.
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform {
-                translation: Vec3::new(30.0, -180.0, 0.0),
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Name::new("skylight_mask_1"))
-        .insert(SkylightMask2D {
-            h_size: Vec2::new(430.0, 330.0),
-        });
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform {
-                translation: Vec3::new(101.6, -989.4, 0.0),
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Name::new("skylight_mask_2"))
-        .insert(SkylightMask2D {
-            h_size: Vec2::new(163.3, 156.1),
-        });
-
-    // Add skylight light.
-    commands.spawn((
-        SkylightLight2D {
-            color: Color::rgb_u8(93, 158, 179),
-            intensity: 0.025,
-        },
-        Name::new("global_skylight"),
-    ));
-
-    // Add light source.
-    commands
-        .spawn(MaterialMesh2dBundle {
-            mesh: block_mesh.into(),
-            material: materials.add(ColorMaterial::from(Color::YELLOW)),
-            transform: Transform {
-                translation: Vec3::new(0.0, 0.0, 1000.0),
-                scale:       Vec3::splat(8.0),
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Name::new("cursor_light"))
-        .insert(OmniLightSource2D {
-            intensity: 10.0,
-            color:     Color::rgb_u8(254, 100, 34),
-            falloff:   Vec3::new(50.0, 20.0, 0.05),
-            ..default()
-        })
-        .insert(RenderLayers::all())
-        .insert(MouseLight);
-
-    let (floor_target, walls_target, objects_target) = post_processing_target
-        .handles
-        .clone()
-        .expect("No post processing target");
-
-
-    // Setup separate camera for floor, walls and objects.
-    commands
-        .spawn((
-            Camera2dBundle {
-                camera: Camera {
-                    hdr: false,
-                    target: RenderTarget::Image(floor_target),
-                    ..default()
-                },
-                ..default()
-            },
-            Name::new("main_camera_floor"),
-        ))
-        .insert(SpriteCamera)
-        .insert(FloorCamera)
-        .insert(RenderLayers::from_layers(CAMERA_LAYER_FLOOR))
-        .insert(UiCameraConfig {
-            show_ui: false,
-        });
-    commands
-        .spawn((
-            Camera2dBundle {
-                camera: Camera {
-                    hdr: false,
-                    target: RenderTarget::Image(walls_target),
-                    ..default()
-                },
-                ..default()
-            },
-            Name::new("main_camera_walls"),
-        ))
-        .insert(SpriteCamera)
-        .insert(WallsCamera)
-        .insert(RenderLayers::from_layers(CAMERA_LAYER_WALLS))
-        .insert(UiCameraConfig {
-            show_ui: false,
-        });
-    commands
-        .spawn((
-            Camera2dBundle {
-                camera: Camera {
-                    hdr: false,
-                    target: RenderTarget::Image(objects_target),
-                    ..default()
-                },
-                ..default()
-            },
-            Name::new("main_camera_objects"),
-        ))
-        .insert(SpriteCamera)
-        .insert(ObjectsCamera)
-        .insert(RenderLayers::from_layers(CAMERA_LAYER_OBJECTS))
-        .insert(UiCameraConfig {
-            show_ui: false,
-        });
 }
 
-#[rustfmt::skip]
-fn system_control_mouse_light(
-    mut commands: Commands,
-    windows: Query<&Window>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
-    mut query_light: Query<(&mut Transform, &mut OmniLightSource2D), With<MouseLight>>,
-    query_cameras: Query<(&Camera, &GlobalTransform), With<SpriteCamera>>,
-    mouse: Res<Input<MouseButton>>,
-    keyboard: Res<Input<KeyCode>>,
-) {
-    let mut rng = thread_rng();
-
-    // We only need to iter over first camera matched.
-    for (camera, camera_transform) in query_cameras.iter() {
-        let RenderTarget::Window(window) = camera.target else {continue};
-        let window = if let WindowRef::Entity(id) = window {
-            id
-        } else if let Ok(id) = primary_window.get_single() {
-            id
-        } else {
-            continue;
-        };
-
-        let Ok(window) = windows.get(window) else {break};
-
-        if let Some(screen_pos) = window.cursor_position() {
-            let window_size = Vec2::new(window.width(), window.height());
-            let mouse_ndc = (screen_pos / window_size) * 2.0 - Vec2::ONE;
-            let ndc_to_world =
-                camera_transform.compute_matrix() * camera.projection_matrix().inverse();
-            let mouse_world = ndc_to_world.project_point3(mouse_ndc.extend(-1.0));
-
-            let (mut mouse_transform, mut mouse_color) = query_light.single_mut();
-            mouse_transform.translation = mouse_world.truncate().extend(1000.0);
-
-            if mouse.just_pressed(MouseButton::Right) {
-                mouse_color.color = Color::rgba(rng.gen(), rng.gen(), rng.gen(), 1.0);
-            }
-            if mouse.just_pressed(MouseButton::Left) && keyboard.pressed(KeyCode::LShift) {
-                commands
-                    .spawn(SpatialBundle {
-                        transform: Transform {
-                            translation: mouse_world.truncate().extend(0.0),
-                            ..default()
-                        },
-                        ..default()
-                    })
-                    .insert(Name::new("point_light"))
-                    .insert(RenderLayers::all())
-                    .insert(OmniLightSource2D {
-                        jitter_intensity: 0.0,
-                        jitter_translation: 0.0,
-                        ..*mouse_color
-                    });
-            }
-        }
-
-        break;
-    }
-}
+// Might need this for structures
+//
+// // Add roofs.
+// commands
+//     .spawn(SpatialBundle {
+//         transform: Transform {
+//             translation: Vec3::new(30.0, -180.0, 0.0),
+//             ..default()
+//         },
+//         ..default()
+//     })
+//     .insert(Name::new("skylight_mask_1"))
+//     .insert(SkylightMask2D {
+//         h_size: Vec2::new(430.0, 330.0),
+//     });
+// commands
+//     .spawn(SpatialBundle {
+//         transform: Transform {
+//             translation: Vec3::new(101.6, -989.4, 0.0),
+//             ..default()
+//         },
+//         ..default()
+//     })
+//     .insert(Name::new("skylight_mask_2"))
+//     .insert(SkylightMask2D {
+//         h_size: Vec2::new(163.3, 156.1),
+//     });
 
 mod prelude {
     pub use bevy::prelude::*;
