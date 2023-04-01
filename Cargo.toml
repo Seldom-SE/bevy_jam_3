@@ -6,7 +6,9 @@ edition = "2021"
 [dependencies]
 bevy = "0.10"
 bevy_magic_light_2d = { git = "https://github.com/IsseW/bevy-magic-light-2d" }
+leafwing-input-manager = "0.9.1"
 rand = "0.8.5"
+seldom_fn_plugin = "0.3.0"
 
 [profile.release]
 codegen-units = 1

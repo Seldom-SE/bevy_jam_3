@@ -1,12 +1,16 @@
-use bevy::prelude::*;
+mod map;
+mod player;
+
 use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
 use bevy::render::view::RenderLayers;
 use bevy::sprite::MaterialMesh2dBundle;
 use bevy::window::{PrimaryWindow, WindowRef};
-// use bevy_inspector_egui::prelude::*;
-use bevy_magic_light_2d::prelude::*;
+use map::{get_floor_z, get_object_z};
+use player::player_plugin;
 use rand::prelude::*;
+
+use prelude::*;
 
 pub const TILE_SIZE: f32 = 16.0;
 pub const SPRITE_SCALE: f32 = 4.0;
@@ -48,6 +52,7 @@ fn main() {
                 }),
         )
         .add_plugin(BevyMagicLight2DPlugin)
+        .fn_plugin(player_plugin)
         .insert_resource(BevyMagicLight2DSettings {
             light_pass_params: LightPassParams {
                 reservoir_size: 16,
@@ -57,16 +62,8 @@ fn main() {
                 ..default()
             },
         })
-        // .add_plugin(WorldInspectorPlugin::new())
-        // .add_plugin(InspectorPlugin::<BevyMagicLight2DSettings>::new())
-        // .register_inspectable::<LightOccluder2D>()
-        // .register_inspectable::<OmniLightSource2D>()
-        // .register_inspectable::<SkylightMask2D>()
-        // .register_inspectable::<SkylightLight2D>()
-        // .register_inspectable::<BevyMagicLight2DSettings>()
         .add_startup_system(setup.after(setup_post_processing_camera))
-        .add_system(system_move_camera)
-        .add_system(system_control_mouse_light.after(system_move_camera))
+        .add_system(system_control_mouse_light)
         .run();
 }
 
@@ -79,10 +76,6 @@ fn setup(
         asset_server:           Res<AssetServer>,
     mut texture_atlases:        ResMut<Assets<TextureAtlas>>,
 ) {
-
-    // Utility functions to compute Z coordinate for floor and ground objects.
-    let get_floor_z  = | y | -> f32 { Z_BASE_FLOOR   - y / SCREEN_SIZE.1 };
-    let get_object_z = | y | -> f32 { Z_BASE_OBJECTS - y / SCREEN_SIZE.1 };
 
     // Maze map. 1 represents wall.
     let walls_info: &[&[u8]] = &[
@@ -292,17 +285,17 @@ fn setup(
                 let id = get_wall_sprite_index(i, j);
 
                 walls.push(commands.spawn(SpriteSheetBundle {
-                        transform: Transform {
-                            translation: Vec3::new(xy.x, xy.y, z),
-                            scale: Vec2::splat(SPRITE_SCALE).extend(0.0),
-                            ..default()
-                        },
-                        sprite: TextureAtlasSprite::new(id),
-                        texture_atlas: wall_atlas.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(xy.x, xy.y, z),
+                        scale: Vec2::splat(SPRITE_SCALE).extend(0.0),
                         ..default()
-                    })
-                    .insert(RenderLayers::from_layers(CAMERA_LAYER_WALLS))
-                    .insert(occluder_data).id());
+                    },
+                    sprite: TextureAtlasSprite::new(id),
+                    texture_atlas: wall_atlas.clone(),
+                    ..default()
+                })
+                .insert(RenderLayers::from_layers(CAMERA_LAYER_WALLS))
+                .insert(occluder_data).id());
             }
         }
     }
@@ -866,37 +859,9 @@ fn system_control_mouse_light(
     }
 }
 
-#[rustfmt::skip]
-fn system_move_camera(
-    mut camera_current: Local<Vec2>,
-    mut camera_target:  Local<Vec2>,
-    mut query_cameras:  Query<&mut Transform, With<SpriteCamera>>,
-        keyboard:       Res<Input<KeyCode>>,
-) {
-
-    let speed = 10.0;
-
-    if keyboard.pressed(KeyCode::W) {
-        camera_target.y += speed;
-    }
-    if keyboard.pressed(KeyCode::S) {
-        camera_target.y -= speed;
-    }
-    if keyboard.pressed(KeyCode::A) {
-        camera_target.x -= speed;
-    }
-    if keyboard.pressed(KeyCode::D) {
-        camera_target.x += speed;
-    }
-
-    // Smooth camera.
-    let blend_ratio = 0.18;
-    let movement = *camera_target - *camera_current;
-    *camera_current += movement * blend_ratio;
-
-    // Update all sprite cameras.
-    for mut camera_transform in query_cameras.iter_mut() {
-        camera_transform.translation.x = camera_current.x;
-        camera_transform.translation.y = camera_current.y;
-    }
+mod prelude {
+    pub use bevy::prelude::*;
+    pub use bevy_magic_light_2d::prelude::*;
+    pub use leafwing_input_manager::prelude::*;
+    pub use seldom_fn_plugin::FnPluginExt;
 }
