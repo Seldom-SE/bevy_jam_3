@@ -1,0 +1,26 @@
+[package]
+name = "bevy_jam_3"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.10"
+bevy_magic_light_2d = { git = "https://github.com/IsseW/bevy-magic-light-2d" }
+rand = "0.8.5"
+
+[profile.release]
+codegen-units = 1
+debug = false
+lto = "thin"
+opt-level = 3
+panic = "abort"
+
+[profile.dev.package."*"]
+debug = true
+incremental = true
+
+[profile.dev]
+codegen-units = 16
+opt-level = 0
+debug = true
+incremental = true
