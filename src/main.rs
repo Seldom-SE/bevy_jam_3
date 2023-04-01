@@ -204,7 +204,7 @@ fn setup(
         if c1 < 0 || c1 >= maze_cols {
             return 1;
         }
-        return walls_info[r1 as usize][c1 as usize];
+        walls_info[r1 as usize][c1 as usize]
     };
 
     // Get atlas sprite index for wall.
@@ -220,27 +220,27 @@ fn setup(
         let total_walls = w_up + w_down + w_left + w_right;
 
         if total_walls == 4 {
-            return wall_atlas_cols * 0 + 0;
+            return 0;
         }
 
         if total_walls == 3 {
             if w_up == 0 {
-                return wall_atlas_cols * 1 + 0;
+                return wall_atlas_cols;
             }
             if w_left == 0 {
-                return wall_atlas_cols * 1 + 1;
+                return wall_atlas_cols + 1;
             }
             if w_down == 0 {
-                return wall_atlas_cols * 1 + 2;
+                return wall_atlas_cols + 2;
             }
             if w_right == 0 {
-                return wall_atlas_cols * 1 + 3;
+                return wall_atlas_cols + 3;
             }
         }
 
         if total_walls == 2 {
             if w_left == 1 && w_right == 1 {
-                return wall_atlas_cols * 2 + 0;
+                return wall_atlas_cols * 2;
             }
 
             if w_up == 1 && w_down == 1 {
@@ -266,7 +266,7 @@ fn setup(
 
         if total_walls == 1 {
             if w_left == 1 {
-                return wall_atlas_cols * 3 + 0;
+                return wall_atlas_cols * 3;
             }
             if w_down == 1 {
                 return wall_atlas_cols * 3 + 1;
@@ -279,7 +279,7 @@ fn setup(
             }
         }
 
-        return wall_atlas_cols * 4 + 0;
+        wall_atlas_cols * 4
     };
 
     // Add walls with occluder component.
