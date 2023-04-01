@@ -1,5 +1,3 @@
-use bevy::render::view::RenderLayers;
-
 use crate::{map::as_object_vec3, prelude::*};
 
 pub fn player_plugin(app: &mut App) {
@@ -42,10 +40,6 @@ fn init(
             texture_atlas: texture_atlas_handle,
             ..default()
         },
-        RenderLayers::from_layers(CAMERA_LAYER_OBJECTS),
-        LightOccluder2D {
-            h_size: Vec2::splat(8.),
-        },
         InputManagerBundle::<Action> {
             input_map: InputMap::default()
                 .insert(VirtualDPad::wasd(), Action::Move)
@@ -61,7 +55,7 @@ const PLAYER_SPEED: f32 = 100.0;
 
 fn player_move(
     mut players: Query<(&mut Transform, &ActionState<Action>), With<Player>>,
-    mut cameras: Query<&mut Transform, (With<SpriteCamera>, Without<Player>)>,
+    mut cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
     time: Res<Time>,
 ) {
     let Ok((mut transform, state)) = players.get_single_mut() else { return };
@@ -81,10 +75,9 @@ fn player_move(
         )
     }
 
-    for mut camera_transform in &mut cameras {
-        camera_transform.translation = transform
-            .translation
-            .truncate()
-            .extend(camera_transform.translation.z);
-    }
+    let camera_translation = &mut cameras.single_mut().translation;
+    *camera_translation = transform
+        .translation
+        .truncate()
+        .extend(camera_translation.z);
 }

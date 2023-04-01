@@ -1,3 +1,5 @@
+// TODO Reintegrate day/night cycle
+
 use std::f32::consts::TAU;
 
 use crate::prelude::*;
@@ -11,19 +13,19 @@ const INTENSITY_RANGE: f32 = 0.25;
 const DAY_COLOR: Vec3 = Vec3::new(0.85, 0.85, 0.6);
 const NIGHT_COLOR: Vec3 = Vec3::new(0.3, 0.45, 0.8);
 
-fn sky_light(time: f32) -> SkylightLight2D {
-    let intensity = (MEAN_INTENSITY + INTENSITY_RANGE * time.sin()).powi(2);
-    let color = NIGHT_COLOR.lerp(DAY_COLOR, time.sin() * 0.5 + 0.5);
-    let color = Color::rgb(color.x, color.y, color.z);
-    SkylightLight2D { color, intensity }
-}
+// fn sky_light(time: f32) -> SkylightLight2D {
+//     let intensity = (MEAN_INTENSITY + INTENSITY_RANGE * time.sin()).powi(2);
+//     let color = NIGHT_COLOR.lerp(DAY_COLOR, time.sin() * 0.5 + 0.5);
+//     let color = Color::rgb(color.x, color.y, color.z);
+//     SkylightLight2D { color, intensity }
+// }
 
 fn init(mut commands: Commands) {
-    commands.spawn(sky_light(0.));
+    // commands.spawn(sky_light(0.));
 }
 
 const DAY_LENGTH: f32 = 50.;
 
-fn update(mut skylights: Query<&mut SkylightLight2D>, time: Res<Time>) {
-    *skylights.single_mut() = sky_light((time.elapsed_seconds() / DAY_LENGTH).fract() * TAU);
+fn update(time: Res<Time>) {
+    // *skylights.single_mut() = sky_light((time.elapsed_seconds() / DAY_LENGTH).fract() * TAU);
 }
