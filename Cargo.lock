@@ -893,7 +893,7 @@ dependencies = [
 [[package]]
 name = "bevy_magic_light_2d"
 version = "0.3.0"
-source = "git+https://github.com/IsseW/bevy-magic-light-2d#b0aea7c98a25bcd5bccb2f0c8ccc91618c3746e6"
+source = "git+https://github.com/IsseW/bevy-magic-light-2d#b4110c29822a74745f4d05f7532b05279857c8b4"
 dependencies = [
  "anyhow",
  "bevy 0.10.1",

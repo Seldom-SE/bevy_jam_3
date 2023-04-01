@@ -1,4 +1,4 @@
-#import bevy_pbr::mesh_view_bindings
+#import bevy_sprite::mesh2d_view_bindings
 #import bevy_pbr::utils
 #import bevy_magic_light_2d::gi_camera
 
