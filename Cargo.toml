@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 bevy = "0.10"
-bevy_ecs_tilemap = "0.10.0"
+bevy_ecs_tilemap = { git = "https://github.com/IsseW/bevy_ecs_tilemap", features = ["lights"] }
 enum-map = "2.5.0"
 leafwing-input-manager = "0.9.1"
 rand = { version = "0.8.5", features = ["small_rng"] }

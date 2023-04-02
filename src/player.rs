@@ -64,6 +64,11 @@ fn init(
         },
         Player,
         Vel::default(),
+        PointLight2d {
+            color: Color::WHITE,
+            strength: 1.0,
+            falloff: 0.5,
+        },
     ));
 }
 
