@@ -3,7 +3,7 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::{asset::Assets, physics::Vel, prelude::*, SCREEN_SIZE};
+use crate::{asset::GameAssets, physics::Vel, prelude::*, SCREEN_SIZE};
 
 pub fn map_plugin(app: &mut App) {
     app.add_plugin(TilemapPlugin)
@@ -43,6 +43,9 @@ pub struct Chunk {
     // pub detail: Entity,
     pub walls: Entity,
 }
+
+#[derive(Component)]
+struct ChunkMarker;
 
 #[derive(Default, Resource)]
 pub struct ChunkManager {
@@ -218,7 +221,7 @@ impl ChunkManager {
 
 fn spawn_chunk(
     commands: &mut Commands,
-    assets: &Assets,
+    assets: &GameAssets,
     asset_server: &AssetServer,
     chunk_pos: IVec2,
 ) -> Chunk {
@@ -322,7 +325,7 @@ fn spawn_chunk(
     let floor = {
         let floor_image: Handle<Image> = asset_server.load("art/atlas_floor.png");
         let mut floor_storage = TileStorage::empty(map_size);
-        let floor_map = commands.spawn_empty().id();
+        let floor_map = commands.spawn(ChunkMarker).id();
 
         for (i, floor) in floors.into_iter().enumerate() {
             let position = TilePos {
@@ -360,7 +363,7 @@ fn spawn_chunk(
     let walls = {
         let wall_image: Handle<Image> = asset_server.load("art/atlas_wall.png");
         let mut wall_storage = TileStorage::empty(map_size);
-        let wall_map = commands.spawn_empty().id();
+        let wall_map = commands.spawn(ChunkMarker).id();
 
         for (i, wall) in walls.into_iter().enumerate() {
             if wall {
@@ -408,7 +411,7 @@ fn spawn_chunks_around_camera(
     mut commands: Commands,
     camera_query: Query<&Transform, With<Camera>>,
     asset_server: Res<AssetServer>,
-    assets: Res<Assets>,
+    assets: Res<GameAssets>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
     for transform in camera_query.iter() {
@@ -430,7 +433,7 @@ fn spawn_chunks_around_camera(
 fn despawn_outofrange_chunks(
     mut commands: Commands,
     camera_query: Query<&Transform, With<Camera>>,
-    chunks_query: Query<(Entity, &Transform)>,
+    chunks_query: Query<(Entity, &Transform), With<ChunkMarker>>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
     for (entity, chunk_transform) in chunks_query.iter() {

@@ -11,6 +11,7 @@ use asset::asset_plugin;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
 use camera::camera_plugin;
 use day_night::day_night_plugin;
+use item::item_plugin;
 use map::map_plugin;
 use physics::physics_plugin;
 use player::player_plugin;
@@ -49,6 +50,7 @@ fn main() {
         )
         .fn_plugin(asset_plugin)
         .fn_plugin(camera_plugin)
+        .fn_plugin(item_plugin)
         .fn_plugin(map_plugin)
         .fn_plugin(player_plugin)
         .fn_plugin(day_night_plugin)

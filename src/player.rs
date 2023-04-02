@@ -8,17 +8,20 @@ use enum_map::enum_map;
 
 pub fn player_plugin(app: &mut App) {
     app.add_plugin(InputManagerPlugin::<Action>::default())
+        .init_resource::<CursorPos>()
         .add_startup_system(init)
-        .add_system(player_move);
+        .add_system(player_move)
+        .add_system(update_cursor_pos);
 }
 
 #[derive(Actionlike, Clone)]
-enum Action {
+pub enum Action {
     Move,
+    Collect,
 }
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 fn init(
     mut commands: Commands,
@@ -50,6 +53,8 @@ fn init(
             input_map: InputMap::default()
                 .insert(VirtualDPad::wasd(), Action::Move)
                 .insert(DualAxis::left_stick(), Action::Move)
+                .insert(KeyCode::Space, Action::Collect)
+                .insert(GamepadButtonType::South, Action::Collect)
                 .build(),
             ..default()
         },
@@ -70,7 +75,6 @@ fn init(
 const PLAYER_SPEED: f32 = 200.0;
 
 fn player_move(
-    mut commands: Commands,
     mut players: Query<(&mut Vel, &Transform, &ActionState<Action>), With<Player>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
 ) {
@@ -93,4 +97,24 @@ fn player_move(
         .translation
         .truncate()
         .extend(camera_translation.z);
+}
+
+#[derive(Default, Deref, DerefMut, Resource)]
+pub struct CursorPos(Vec2);
+
+fn update_cursor_pos(
+    windows: Query<&Window>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
+    mut cursor_pos: ResMut<CursorPos>,
+) {
+    let (camera, camera_transform) = cameras.single();
+
+    if let Some(world_position) = windows
+        .single()
+        .cursor_position()
+        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+        .map(|ray| ray.origin.truncate())
+    {
+        **cursor_pos = world_position;
+    }
 }
