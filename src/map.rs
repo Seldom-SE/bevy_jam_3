@@ -1,6 +1,9 @@
-use bevy::{utils::HashMap, math::Vec3Swizzles};
+use bevy::{
+    math::{Vec3Swizzles, Vec4Swizzles},
+    utils::HashMap,
+};
 
-use crate::{prelude::*, SCREEN_SIZE};
+use crate::{physics::Vel, prelude::*, SCREEN_SIZE};
 
 pub fn map_plugin(app: &mut App) {
     app.init_resource::<ChunkManager>()
@@ -30,15 +33,190 @@ const MAX_STRUCTURE_SIZE: u32 = 16;
 const MIN_STRUCTURE_DAMAGE: f32 = 0.2;
 const MAX_STRUCTURE_DAMAGE: f32 = 0.6;
 
-struct Chunk {
-    floor: Entity,
-    // detail: Entity,
-    walls: Entity,
+pub struct Chunk {
+    pub floor: Entity,
+    // pub detail: Entity,
+    pub walls: Entity,
 }
 
 #[derive(Default, Resource)]
-struct ChunkManager {
+pub struct ChunkManager {
     chunks: HashMap<IVec2, Chunk>,
+}
+pub type ChunkQueryMut<'world, 'state, 'a> = Query<
+    'world,
+    'state,
+    (
+        &'a mut TileStorage,
+        &'a TilemapSize,
+        &'a TilemapGridSize,
+        &'a TilemapType,
+        &'a Transform,
+    ),
+    Without<Vel>,
+>;
+pub type ChunkQuery<'world, 'state, 'a> = Query<
+    'world,
+    'state,
+    (
+        &'a TileStorage,
+        &'a TilemapSize,
+        &'a TilemapGridSize,
+        &'a TilemapType,
+        &'a Transform,
+    ),
+    Without<Vel>,
+>;
+
+pub struct TileEntryMut<'a> {
+    storage: Mut<'a, TileStorage>,
+    chunk_pos: IVec2,
+    tile_pos: TilePos,
+    entity: Entity,
+}
+
+impl<'a> TileEntryMut<'a> {
+    pub fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    pub fn despawn(&mut self, commands: &mut Commands) {
+        self.storage.remove(&self.tile_pos);
+        commands.entity(self.entity).despawn_recursive();
+    }
+}
+
+pub struct TileEntry<'a> {
+    storage: &'a TileStorage,
+    chunk_pos: IVec2,
+    tile_pos: TilePos,
+    entity: Entity,
+}
+
+impl<'a> TileEntry<'a> {
+    pub fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    pub fn project_to_edge(&self, start: Vec2, end: Vec2) -> Option<Vec2> {
+        let d = end - start;
+        let tile_wpos = (self.chunk_pos.as_vec2() * CHUNK_SIZE as f32
+            + Vec2::new(self.tile_pos.x as f32, self.tile_pos.y as f32))
+            * TILE_SIZE as f32;
+        let half_tile = Vec2::splat(TILE_SIZE as f32 * 0.5);
+
+        let l = tile_wpos - start;
+
+        let t0 = (l - half_tile) / d;
+        let t1 = (l + half_tile) / d;
+        let tmin = t0.max_element();
+        let tmax = t1.min_element();
+
+        if tmax < tmin || tmax < 0.0 || tmin > 1.0 {
+            return None;
+        }
+
+        if tmin > 0.0 {
+            Some(start + d * tmin)
+        } else {
+            Some(end)
+        }
+    }
+}
+
+impl ChunkManager {
+    fn get_tile_mut<'a>(
+        &self,
+        wpos: Vec2,
+        chunk_query: &'a mut ChunkQueryMut,
+        tilemap: impl FnOnce(&Chunk) -> Entity,
+    ) -> Option<TileEntryMut<'a>> {
+        let wpos = wpos - Vec2::ONE * 0.5;
+        let cpos = wpos_to_cpos(wpos);
+        self.chunks.get(&cpos).and_then(|chunk| {
+            let (storage, size, grid_size, ty, transform) =
+                chunk_query.get_mut(tilemap(chunk)).ok()?;
+            let in_map_pos: Vec2 = {
+                let pos = Vec4::from((wpos, 0.0, 1.0));
+                let in_map_pos = transform.compute_matrix().inverse() * pos;
+                in_map_pos.xy()
+            };
+            let in_map_pos = Vec2::new(
+                in_map_pos
+                    .x
+                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
+                in_map_pos
+                    .y
+                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
+            );
+
+            let tile_pos = TilePos::from_world_pos(&in_map_pos, size, grid_size, ty)?;
+            storage.get(&tile_pos).map(|entity| TileEntryMut {
+                storage,
+                chunk_pos: cpos,
+                tile_pos,
+                entity,
+            })
+        })
+    }
+
+    fn get_tile<'a>(
+        &self,
+        wpos: Vec2,
+        chunk_query: &'a ChunkQuery,
+        tilemap: impl FnOnce(&Chunk) -> Entity,
+    ) -> Option<TileEntry<'a>> {
+        let wpos = wpos - Vec2::ONE * 0.5;
+        let cpos = wpos_to_cpos(wpos);
+        self.chunks.get(&cpos).and_then(|chunk| {
+            let (storage, size, grid_size, ty, transform) = chunk_query.get(tilemap(chunk)).ok()?;
+            let in_map_pos: Vec2 = {
+                let pos = Vec4::from((wpos, 0.0, 1.0));
+                let in_map_pos = transform.compute_matrix().inverse() * pos;
+                in_map_pos.xy()
+            };
+            let in_map_pos = Vec2::new(
+                in_map_pos
+                    .x
+                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
+                in_map_pos
+                    .y
+                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
+            );
+
+            let tile_pos = TilePos::from_world_pos(&in_map_pos, size, grid_size, ty)?;
+            storage.get(&tile_pos).map(|entity| TileEntry {
+                storage,
+                chunk_pos: cpos,
+                tile_pos,
+                entity,
+            })
+        })
+    }
+
+    pub fn get_wall_tile_mut<'a>(
+        &self,
+        wpos: Vec2,
+        chunk_query: &'a mut ChunkQueryMut,
+    ) -> Option<TileEntryMut<'a>> {
+        self.get_tile_mut(wpos, chunk_query, |chunk| chunk.walls)
+    }
+
+    pub fn get_wall_tile<'a>(
+        &self,
+        wpos: Vec2,
+        chunk_query: &'a ChunkQuery,
+    ) -> Option<TileEntry<'a>> {
+        self.get_tile(wpos, chunk_query, |chunk| chunk.walls)
+    }
+
+    pub fn get_floor_tile<'a>(
+        &self,
+        wpos: Vec2,
+        chunk_query: &'a ChunkQuery,
+    ) -> Option<TileEntry<'a>> {
+        self.get_tile(wpos, chunk_query, |chunk| chunk.floor)
+    }
 }
 
 fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) -> Chunk {
@@ -81,15 +259,18 @@ fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) 
 
         let mut floor_transform = transform;
         floor_transform.translation.z = FLOOR_LAYER;
-        commands.entity(floor_map).insert(TilemapBundle {
-            grid_size,
-            size: map_size,
-            storage: floor_storage,
-            texture: TilemapTexture::Single(floor_image),
-            tile_size,
-            transform: floor_transform,
-            ..default()
-        }).id()
+        commands
+            .entity(floor_map)
+            .insert(TilemapBundle {
+                grid_size,
+                size: map_size,
+                storage: floor_storage,
+                texture: TilemapTexture::Single(floor_image),
+                tile_size,
+                transform: floor_transform,
+                ..default()
+            })
+            .id()
     };
 
     let walls = {
@@ -109,12 +290,7 @@ fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) 
 
             let damage = rng.gen_range(MIN_STRUCTURE_DAMAGE..MAX_STRUCTURE_DAMAGE);
 
-            for (x, y) in [
-                (Some(x_start), None),
-                (Some(x_start + x_size - 1), None),
-                (None, Some(y_start)),
-                (None, Some(y_start + y_size - 1)),
-            ] {
+            for (x, y) in [(Some(x_start), None), (Some(x_start + x_size - 1), None)] {
                 for x in x
                     .map(|x| x..x + 1)
                     .unwrap_or_else(|| x_start..x_start + x_size)
@@ -132,54 +308,63 @@ fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) 
         }
 
         for (i, wall) in walls.into_iter().enumerate() {
-            let position = TilePos {
-                x: i as u32 % CHUNK_SIZE,
-                y: i as u32 / CHUNK_SIZE,
-            };
+            if wall {
+                let position = TilePos {
+                    x: i as u32 % CHUNK_SIZE,
+                    y: i as u32 / CHUNK_SIZE,
+                };
 
-            let tile = commands
-                .spawn(TileBundle {
-                    position,
-                    texture_index: TileTextureIndex(match wall {
-                        true => 20,
-                        false => 1,
-                    }),
-                    tilemap_id: TilemapId(wall_map),
-                    ..default()
-                })
-                .id();
-            wall_storage.set(&position, tile);
+                let tile = commands
+                    .spawn(TileBundle {
+                        position,
+                        texture_index: TileTextureIndex(20),
+                        tilemap_id: TilemapId(wall_map),
+                        ..default()
+                    })
+                    .id();
+                wall_storage.set(&position, tile);
+            }
         }
 
         let mut wall_transform = transform;
-        wall_transform.translation.z = WALL_LAYER;
-        commands.entity(wall_map).insert(TilemapBundle {
-            grid_size,
-            size: map_size,
-            storage: wall_storage,
-            texture: TilemapTexture::Single(wall_image),
-            tile_size,
-            transform: wall_transform,
-            ..default()
-        }).id()
+        wall_transform.translation.z = WALL_LAYER * 10.0;
+        commands
+            .entity(wall_map)
+            .insert(TilemapBundle {
+                grid_size,
+                size: map_size,
+                storage: wall_storage,
+                texture: TilemapTexture::Single(wall_image),
+                tile_size,
+                transform: wall_transform,
+                ..default()
+            })
+            .id()
     };
 
     Chunk { floor, walls }
 }
 
 fn wpos_to_cpos(wpos: Vec2) -> IVec2 {
-    let wpos = (wpos - (CHUNK_SIZE as f32 * TILE_SIZE as f32) * 0.5).as_ivec2();
-    wpos / (CHUNK_SIZE as i32 * TILE_SIZE as i32)
+    (wpos / (CHUNK_SIZE as f32 * TILE_SIZE as f32))
+        .floor()
+        .as_ivec2()
 }
 
-fn spawn_chunks_around_camera(mut commands: Commands, assets: Res<AssetServer>, camera_query: Query<&Transform, With<Camera>>, mut chunk_manager: ResMut<ChunkManager>) {
+fn spawn_chunks_around_camera(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    camera_query: Query<&Transform, With<Camera>>,
+    mut chunk_manager: ResMut<ChunkManager>,
+) {
     for transform in camera_query.iter() {
         let camera_chunk_pos = wpos_to_cpos(transform.translation.xy());
         for y in (camera_chunk_pos.y - 2)..=(camera_chunk_pos.y + 2) {
             for x in (camera_chunk_pos.x - 2)..=(camera_chunk_pos.x + 2) {
-                if !chunk_manager.chunks.contains_key(&IVec2::new(x, y)) {
-                    let chunk = spawn_chunk(&mut commands, &assets, IVec2::new(x, y));
-                    chunk_manager.chunks.insert(IVec2::new(x, y), chunk);
+                let cpos = IVec2::new(x, y);
+                if !chunk_manager.chunks.contains_key(&cpos) {
+                    let chunk = spawn_chunk(&mut commands, &assets, cpos);
+                    chunk_manager.chunks.insert(cpos, chunk);
                     // Don't generate more than one chunk per tick.
                     return;
                 }
@@ -195,9 +380,9 @@ fn despawn_outofrange_chunks(
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
     for (entity, chunk_transform) in chunks_query.iter() {
-            let cpos = wpos_to_cpos(chunk_transform.translation.xy());
+        let cpos = wpos_to_cpos(chunk_transform.translation.xy());
 
-        if camera_query.iter().all(|(camera_transform)| {
+        if camera_query.iter().all(|camera_transform| {
             let camera_cpos = wpos_to_cpos(camera_transform.translation.xy());
             let distance = (cpos - camera_cpos).abs().max_element();
             distance > 3
