@@ -51,7 +51,7 @@ fn init(
     ));
 }
 
-const PLAYER_SPEED: f32 = 100.0;
+const PLAYER_SPEED: f32 = 200.0;
 
 fn player_move(
     mut players: Query<(&mut Transform, &ActionState<Action>), With<Player>>,
