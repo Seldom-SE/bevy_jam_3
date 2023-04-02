@@ -194,6 +194,9 @@ fn drop_item(
             **curr_slot = **next_slot;
             **next_slot = None;
         }
+
+        let (_, mut last_slot, _) = slots.get_mut(inventory[INVENTORY_SIZE - 1]).unwrap();
+        **last_slot = None;
     }
 }
 
