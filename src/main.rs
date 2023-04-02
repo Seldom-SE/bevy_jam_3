@@ -21,10 +21,8 @@ use prelude::*;
 pub const SCREEN_SIZE: (f32, f32) = (768.0, 768.0);
 
 fn main() {
-    // Basic setup.
-    App::new()
-        .insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
-        .add_plugins(
+    let mut app = App::new();
+    app.add_plugins(
             DefaultPlugins
                 .set(AssetPlugin {
                     watch_for_changes: true,
@@ -46,7 +44,12 @@ fn main() {
                         ..default()
                     },
                 }),
-        )
+        );
+    #[cfg(feature = "editor")]
+    app.add_plugin(bevy_editor_pls::prelude::EditorPlugin::default());
+    // Basic setup.
+    app
+        .insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
         .fn_plugin(asset_plugin)
         .fn_plugin(camera_plugin)
         .fn_plugin(map_plugin)

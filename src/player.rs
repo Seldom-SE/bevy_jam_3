@@ -2,7 +2,7 @@ use crate::{
     map::as_object_vec3,
     physics::Vel,
     prelude::*,
-    stats::{Stat, StatBundle, Stats},
+    stats::{Stat, StatBundle, Stats}, camera::PlayerCamera,
 };
 use enum_map::enum_map;
 
@@ -65,9 +65,9 @@ fn init(
         Player,
         Vel::default(),
         PointLight2d {
-            color: Color::WHITE,
-            strength: 1.0,
-            falloff: 0.5,
+            color: Color::ORANGE_RED,
+            strength: 5.0,
+            falloff: 0.45,
         },
     ));
 }
@@ -75,9 +75,8 @@ fn init(
 const PLAYER_SPEED: f32 = 200.0;
 
 fn player_move(
-    mut commands: Commands,
     mut players: Query<(&mut Vel, &Transform, &ActionState<Action>), With<Player>>,
-    mut cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    mut cameras: Query<&mut Transform, (With<PlayerCamera>, Without<Player>)>,
 ) {
     let Ok((mut vel, transform, state)) = players.get_single_mut() else { return };
 
