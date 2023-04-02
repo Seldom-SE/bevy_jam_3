@@ -1,5 +1,6 @@
 mod camera;
 mod day_night;
+mod item;
 mod map;
 mod player;
 mod stats;

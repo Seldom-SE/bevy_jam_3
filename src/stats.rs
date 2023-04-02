@@ -19,7 +19,7 @@ pub struct Stats {
 impl Stats {
     pub fn new(stats: EnumMap<Stat, f32>) -> Self {
         Stats {
-            base_stats: stats.clone(),
+            base_stats: stats,
             current_stats: stats,
             buffs: vec![],
         }
@@ -62,7 +62,7 @@ fn stat_propegation(
 ) {
     // Calculate stats for the frame
     for (_, mut stats, mut health, mut radiation) in query.iter_mut() {
-        let mut new_stats = stats.base_stats.clone();
+        let mut new_stats = stats.base_stats;
 
         let buffs = stats.buffs.clone();
         stats.buffs.clear();
