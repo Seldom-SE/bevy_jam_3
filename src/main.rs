@@ -5,10 +5,14 @@ mod item;
 mod map;
 mod physics;
 mod player;
+mod sprite;
 mod stats;
 
 use asset::asset_plugin;
-use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
+use bevy::{
+    render::render_resource::{FilterMode, SamplerDescriptor},
+    sprite::SpritePlugin,
+};
 use camera::camera_plugin;
 use day_night::day_night_plugin;
 use item::item_plugin;
@@ -24,33 +28,34 @@ pub const SCREEN_SIZE: (f32, f32) = (768.0, 768.0);
 fn main() {
     let mut app = App::new();
     app.add_plugins(
-            DefaultPlugins
-                .set(AssetPlugin {
-                    watch_for_changes: true,
+        DefaultPlugins
+            .set(AssetPlugin {
+                watch_for_changes: true,
+                ..default()
+            })
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: SCREEN_SIZE.into(),
+                    title: "Bevy Jam 3".into(),
+                    resizable: false,
                     ..default()
-                })
-                .set(WindowPlugin {
-                    primary_window: Some(Window {
-                        resolution: SCREEN_SIZE.into(),
-                        title: "Bevy Jam 3".into(),
-                        resizable: false,
-                        ..default()
-                    }),
-                    ..default()
-                })
-                .set(ImagePlugin {
-                    default_sampler: SamplerDescriptor {
-                        mag_filter: FilterMode::Nearest,
-                        min_filter: FilterMode::Nearest,
-                        ..default()
-                    },
                 }),
-        );
+                ..default()
+            })
+            .set(ImagePlugin {
+                default_sampler: SamplerDescriptor {
+                    mag_filter: FilterMode::Nearest,
+                    min_filter: FilterMode::Nearest,
+                    ..default()
+                },
+            })
+            .disable::<SpritePlugin>(),
+    )
+    .add_plugin(sprite::SpritePlugin);
     #[cfg(feature = "editor")]
     app.add_plugin(bevy_editor_pls::prelude::EditorPlugin::default());
     // Basic setup.
-    app
-        .insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
+    app.insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
         .fn_plugin(asset_plugin)
         .fn_plugin(camera_plugin)
         .fn_plugin(item_plugin)

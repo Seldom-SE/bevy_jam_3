@@ -1,8 +1,9 @@
 use crate::{
+    camera::PlayerCamera,
     map::as_object_vec3,
     physics::Vel,
     prelude::*,
-    stats::{Stat, StatBundle, Stats}, camera::PlayerCamera,
+    stats::{Stat, StatBundle, Stats},
 };
 use enum_map::enum_map;
 

@@ -538,7 +538,7 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_tilemap"
 version = "0.10.0"
-source = "git+https://github.com/IsseW/bevy_ecs_tilemap#74e9ebe2d934184b7d7b1bcfa55201c96ec38a3b"
+source = "git+https://github.com/IsseW/bevy_ecs_tilemap#49c7b0bb8a210b510bd9659e662b8a59940dca47"
 dependencies = [
  "bevy",
  "log",
@@ -737,7 +737,9 @@ dependencies = [
  "bevy",
  "bevy_ecs_tilemap",
  "bevy_editor_pls",
+ "bytemuck",
  "enum-map",
+ "fixedbitset",
  "leafwing-input-manager",
  "rand",
  "seldom_fn_plugin",
