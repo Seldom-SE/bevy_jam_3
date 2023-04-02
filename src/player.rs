@@ -1,5 +1,9 @@
-use crate::{map::as_object_vec3, prelude::*};
-
+use crate::{
+    map::as_object_vec3,
+    prelude::*,
+    stats::{Stat, StatBundle, Stats},
+};
+use enum_map::enum_map;
 pub fn player_plugin(app: &mut App) {
     app.add_plugin(InputManagerPlugin::<Action>::default())
         .add_startup_system(init)
@@ -48,6 +52,15 @@ fn init(
             ..default()
         },
         Player,
+        StatBundle {
+            stats: Stats::new(enum_map! {
+                Stat::Speed => 5.0,
+                Stat::Health => 30.0,
+                Stat::Sight => 1.0,
+                Stat::RadiationResistence => 0.0,
+            }),
+            ..default()
+        },
     ));
 }
 

@@ -2,12 +2,14 @@ mod camera;
 mod day_night;
 mod map;
 mod player;
+mod stats;
 
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
 use camera::camera_plugin;
 use day_night::day_night_plugin;
 use map::map_plugin;
 use player::player_plugin;
+use stats::stat_plugin;
 
 use prelude::*;
 
@@ -45,6 +47,7 @@ fn main() {
         .fn_plugin(map_plugin)
         .fn_plugin(player_plugin)
         .fn_plugin(day_night_plugin)
+        .fn_plugin(stat_plugin)
         .run();
 }
 
