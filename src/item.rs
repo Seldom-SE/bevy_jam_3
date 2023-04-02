@@ -14,7 +14,8 @@ pub fn item_plugin(app: &mut App) {
         .add_system(collect_item)
         .add_system(update_item_image)
         .add_system(drop_item)
-        .add_system(update_recipe_menu);
+        .add_system(update_recipe_menu)
+        .add_system(craft_item);
 }
 
 #[derive(Clone, Component, Copy, Enum, Eq, PartialEq)]
@@ -53,7 +54,7 @@ struct Recipes(EnumMap<Item, Option<Vec<(Item, u8)>>>);
 #[derive(Component)]
 struct RecipeMenu;
 
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 struct Recipe(Item);
 
 impl Default for Recipes {
@@ -98,6 +99,43 @@ fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
         .insert(inventory);
 }
 
+fn add_item(item: Item, slots: &mut Query<&mut InventorySlot>, inventory: &Inventory) -> bool {
+    for &slot_entity in &**inventory {
+        let mut slot = slots.get_mut(slot_entity).unwrap();
+        if slot.is_some() {
+            continue;
+        }
+
+        **slot = Some(item);
+        return true;
+    }
+    false
+}
+
+fn remove_item_at(slot: usize, slots: &mut Query<&mut InventorySlot>, inventory: &Inventory) {
+    for curr_slot in slot..INVENTORY_SIZE - 1 {
+        let [mut curr_slot, mut next_slot] = slots
+            .get_many_mut([inventory[curr_slot], inventory[curr_slot + 1]])
+            .unwrap();
+
+        **curr_slot = **next_slot;
+        **next_slot = None;
+    }
+
+    let mut last_slot = slots.get_mut(inventory[INVENTORY_SIZE - 1]).unwrap();
+    **last_slot = None;
+}
+
+fn remove_item(item: Item, slots: &mut Query<&mut InventorySlot>, inventory: &Inventory) {
+    for (i, &slot) in inventory.iter().enumerate() {
+        let slot = slots.get(slot).unwrap();
+        if **slot == Some(item) {
+            remove_item_at(i, slots, inventory);
+            break;
+        }
+    }
+}
+
 const COLLECTION_RADIUS: f32 = 32.;
 fn collect_item(
     mut commands: Commands,
@@ -118,15 +156,8 @@ fn collect_item(
         }
 
         let inventory = inventory.single();
-        for &slot_entity in &**inventory {
-            let mut slot = slots.get_mut(slot_entity).unwrap();
-            if slot.is_some() {
-                continue;
-            }
-
-            **slot = Some(*item_type);
+        if add_item(*item_type, &mut slots, inventory) {
             commands.entity(item).despawn();
-            break;
         }
         break;
     }
@@ -146,7 +177,10 @@ fn update_item_image(
 
 fn drop_item(
     mut commands: Commands,
-    mut slots: Query<(Entity, &mut InventorySlot, &Interaction)>,
+    mut slots: ParamSet<(
+        Query<(Entity, &mut InventorySlot, &Interaction)>,
+        Query<&mut InventorySlot>,
+    )>,
     inventory: Query<&Inventory>,
     players: Query<&Transform, With<Player>>,
     mouse: Res<Input<MouseButton>>,
@@ -161,7 +195,7 @@ fn drop_item(
     let inventory = inventory.single();
     let mut clicked_slot = None;
 
-    for (slot_entity, slot, &interaction) in slots.iter() {
+    for (slot_entity, slot, &interaction) in slots.p0().iter() {
         if interaction != Interaction::Hovered {
             continue;
         }
@@ -186,17 +220,7 @@ fn drop_item(
     }
 
     if let Some(slot) = clicked_slot {
-        for curr_slot in slot..INVENTORY_SIZE - 1 {
-            let [(_, mut curr_slot, _), (_, mut next_slot, _)] = slots
-                .get_many_mut([inventory[curr_slot], inventory[curr_slot + 1]])
-                .unwrap();
-
-            **curr_slot = **next_slot;
-            **next_slot = None;
-        }
-
-        let (_, mut last_slot, _) = slots.get_mut(inventory[INVENTORY_SIZE - 1]).unwrap();
-        **last_slot = None;
+        remove_item_at(slot, &mut slots.p1(), inventory);
     }
 }
 
@@ -264,4 +288,29 @@ fn update_recipe_menu(
         .collect::<Vec<_>>();
 
     commands.entity(recipe_menu).push_children(&recipes);
+}
+
+fn craft_item(
+    mut slots: Query<&mut InventorySlot>,
+    recipe_slots: Query<(&Recipe, &Interaction), Changed<Interaction>>,
+    inventory: Query<&Inventory>,
+    recipes: Res<Recipes>,
+) {
+    for (recipe, &interaction) in recipe_slots.iter() {
+        if interaction != Interaction::Clicked {
+            continue;
+        }
+
+        let inventory = inventory.single();
+        let ingredients = recipes[**recipe].as_ref().unwrap();
+
+        for (ingredient, count) in ingredients {
+            for _ in 0..*count {
+                remove_item(*ingredient, &mut slots, inventory);
+            }
+        }
+
+        add_item(**recipe, &mut slots, inventory);
+        return;
+    }
 }

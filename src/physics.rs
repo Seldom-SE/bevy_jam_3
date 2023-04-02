@@ -1,4 +1,4 @@
-use bevy::{math::Vec3Swizzles, prelude::*};
+use bevy::prelude::*;
 
 use crate::map::{get_object_z, ChunkManager, ChunkQuery};
 

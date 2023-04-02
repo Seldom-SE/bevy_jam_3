@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod asset;
 mod camera;
 mod day_night;
