@@ -70,6 +70,7 @@ fn init(
 const PLAYER_SPEED: f32 = 200.0;
 
 fn player_move(
+    mut commands: Commands,
     mut players: Query<(&mut Vel, &Transform, &ActionState<Action>), With<Player>>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
 ) {

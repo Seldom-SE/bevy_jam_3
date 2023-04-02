@@ -44,7 +44,6 @@ fn main() {
                     },
                 }),
         )
-        .add_plugin(TilemapPlugin)
         .fn_plugin(camera_plugin)
         .fn_plugin(map_plugin)
         .fn_plugin(player_plugin)
