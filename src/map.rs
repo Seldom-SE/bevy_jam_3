@@ -3,10 +3,11 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::{prelude::*, SCREEN_SIZE};
+use crate::{physics::Vel, prelude::*, SCREEN_SIZE};
 
 pub fn map_plugin(app: &mut App) {
-    app.init_resource::<ChunkManager>()
+    app.add_plugin(TilemapPlugin)
+        .init_resource::<ChunkManager>()
         .add_system(spawn_chunks_around_camera)
         .add_system(despawn_outofrange_chunks);
 }
