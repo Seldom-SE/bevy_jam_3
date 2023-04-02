@@ -1,3 +1,4 @@
+mod asset;
 mod camera;
 mod day_night;
 mod item;
@@ -6,6 +7,7 @@ mod physics;
 mod player;
 mod stats;
 
+use asset::asset_plugin;
 use bevy::render::render_resource::{FilterMode, SamplerDescriptor};
 use camera::camera_plugin;
 use day_night::day_night_plugin;
@@ -45,6 +47,7 @@ fn main() {
                     },
                 }),
         )
+        .fn_plugin(asset_plugin)
         .fn_plugin(camera_plugin)
         .fn_plugin(map_plugin)
         .fn_plugin(player_plugin)

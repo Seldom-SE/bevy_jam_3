@@ -3,7 +3,7 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::{physics::Vel, prelude::*, SCREEN_SIZE};
+use crate::{asset::Assets, physics::Vel, prelude::*, SCREEN_SIZE};
 
 pub fn map_plugin(app: &mut App) {
     app.add_plugin(TilemapPlugin)
@@ -36,6 +36,7 @@ const MAX_STRUCTURE_DAMAGE: f32 = 0.6;
 const NUCLEAR_POOL_CHANCE: f32 = 0.3;
 const NUCLEAR_POOL_SIZE: u32 = 4;
 const NUCLEAR_POOL_NOISE: f32 = 4.;
+const ITEM_CHANCE: f32 = 0.3;
 
 pub struct Chunk {
     pub floor: Entity,
@@ -106,8 +107,8 @@ impl<'a> TileEntry<'a> {
         let d = end - start;
         let tile_wpos = (self.chunk_pos.as_vec2() * CHUNK_SIZE as f32
             + Vec2::new(self.tile_pos.x as f32, self.tile_pos.y as f32))
-            * TILE_SIZE as f32;
-        let half_tile = Vec2::splat(TILE_SIZE as f32 * 0.5);
+            * TILE_SIZE;
+        let half_tile = Vec2::splat(TILE_SIZE * 0.5);
 
         let l = tile_wpos - start;
 
@@ -146,12 +147,8 @@ impl ChunkManager {
                 in_map_pos.xy()
             };
             let in_map_pos = Vec2::new(
-                in_map_pos
-                    .x
-                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
-                in_map_pos
-                    .y
-                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
+                in_map_pos.x.rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE),
+                in_map_pos.y.rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE),
             );
 
             let tile_pos = TilePos::from_world_pos(&in_map_pos, size, grid_size, ty)?;
@@ -180,12 +177,8 @@ impl ChunkManager {
                 in_map_pos.xy()
             };
             let in_map_pos = Vec2::new(
-                in_map_pos
-                    .x
-                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
-                in_map_pos
-                    .y
-                    .rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE as f32),
+                in_map_pos.x.rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE),
+                in_map_pos.y.rem_euclid(CHUNK_SIZE as f32 * TILE_SIZE),
             );
 
             let tile_pos = TilePos::from_world_pos(&in_map_pos, size, grid_size, ty)?;
@@ -223,7 +216,12 @@ impl ChunkManager {
     }
 }
 
-fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) -> Chunk {
+fn spawn_chunk(
+    commands: &mut Commands,
+    assets: &Assets,
+    asset_server: &AssetServer,
+    chunk_pos: IVec2,
+) -> Chunk {
     let map_size = TilemapSize {
         x: CHUNK_SIZE,
         y: CHUNK_SIZE,
@@ -302,10 +300,27 @@ fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) 
                 }
             }
         }
+
+        while rng.gen_bool(ITEM_CHANCE as f64) {
+            let x = rng.gen_range((x_start as f32 + 2.)..(x_start + x_size - 1) as f32) * TILE_SIZE;
+            let y = rng.gen_range((y_start as f32 + 2.)..(y_start + y_size - 1) as f32) * TILE_SIZE;
+
+            let item = rng.gen();
+            commands.spawn((
+                SpriteBundle {
+                    texture: assets.items[item].clone(),
+                    transform: Transform::from_translation(
+                        transform.translation + Vec3::new(x, y, get_object_z(y)),
+                    ),
+                    ..default()
+                },
+                item,
+            ));
+        }
     }
 
     let floor = {
-        let floor_image: Handle<Image> = assets.load("art/atlas_floor.png");
+        let floor_image: Handle<Image> = asset_server.load("art/atlas_floor.png");
         let mut floor_storage = TileStorage::empty(map_size);
         let floor_map = commands.spawn_empty().id();
 
@@ -343,7 +358,7 @@ fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) 
     };
 
     let walls = {
-        let wall_image: Handle<Image> = assets.load("art/atlas_wall.png");
+        let wall_image: Handle<Image> = asset_server.load("art/atlas_wall.png");
         let mut wall_storage = TileStorage::empty(map_size);
         let wall_map = commands.spawn_empty().id();
 
@@ -386,15 +401,14 @@ fn spawn_chunk(commands: &mut Commands, assets: &AssetServer, chunk_pos: IVec2) 
 }
 
 fn wpos_to_cpos(wpos: Vec2) -> IVec2 {
-    (wpos / (CHUNK_SIZE as f32 * TILE_SIZE as f32))
-        .floor()
-        .as_ivec2()
+    (wpos / (CHUNK_SIZE as f32 * TILE_SIZE)).floor().as_ivec2()
 }
 
 fn spawn_chunks_around_camera(
     mut commands: Commands,
-    assets: Res<AssetServer>,
     camera_query: Query<&Transform, With<Camera>>,
+    asset_server: Res<AssetServer>,
+    assets: Res<Assets>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
     for transform in camera_query.iter() {
@@ -403,7 +417,7 @@ fn spawn_chunks_around_camera(
             for x in (camera_chunk_pos.x - 2)..=(camera_chunk_pos.x + 2) {
                 let cpos = IVec2::new(x, y);
                 if !chunk_manager.chunks.contains_key(&cpos) {
-                    let chunk = spawn_chunk(&mut commands, &assets, cpos);
+                    let chunk = spawn_chunk(&mut commands, &assets, &asset_server, cpos);
                     chunk_manager.chunks.insert(cpos, chunk);
                     // Don't generate more than one chunk per tick.
                     return;
