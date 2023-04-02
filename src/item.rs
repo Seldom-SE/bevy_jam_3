@@ -1,4 +1,4 @@
-use enum_map::Enum;
+use enum_map::{enum_map, Enum, EnumMap};
 use rand::distributions::Standard;
 
 use crate::{
@@ -8,18 +8,23 @@ use crate::{
 };
 
 pub fn item_plugin(app: &mut App) {
-    app.add_startup_system(init_inventory)
+    app.init_resource::<Recipes>()
+        .add_startup_system(init_inventory)
+        .add_startup_system(init_recipe_menu)
         .add_system(collect_item)
         .add_system(update_item_image)
-        .add_system(drop_item);
+        .add_system(drop_item)
+        .add_system(update_recipe_menu);
 }
 
-#[derive(Clone, Component, Copy, Enum)]
+#[derive(Clone, Component, Copy, Enum, Eq, PartialEq)]
 pub enum Item {
     Circuit,
     Metal,
     CannedFood,
     Plant,
+    Generator,
+    Assembler,
 }
 
 impl Distribution<Item> for Standard {
@@ -42,6 +47,25 @@ struct Inventory([Entity; INVENTORY_SIZE]);
 #[derive(Component, Deref, DerefMut)]
 struct InventorySlot(Option<Item>);
 
+#[derive(Deref, DerefMut, Resource)]
+struct Recipes(EnumMap<Item, Option<Vec<(Item, u8)>>>);
+
+#[derive(Component)]
+struct RecipeMenu;
+
+#[derive(Component)]
+struct Recipe(Item);
+
+impl Default for Recipes {
+    fn default() -> Self {
+        Self(enum_map! {
+            Item::Circuit | Item::Metal | Item::CannedFood | Item::Plant => None,
+            Item::Generator => Some(vec![(Item::Circuit, 1), (Item::Metal, 2)]),
+            Item::Assembler => Some(vec![(Item::Circuit, 2), (Item::Metal, 1)]),
+        })
+    }
+}
+
 fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
     let inventory = Inventory([(); INVENTORY_SIZE].map(|_| {
         commands
@@ -62,6 +86,7 @@ fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
     commands
         .spawn(NodeBundle {
             style: Style {
+                position_type: PositionType::Absolute,
                 size: Size::all(Val::Percent(100.)),
                 align_items: AlignItems::End,
                 justify_content: JustifyContent::Center,
@@ -170,4 +195,70 @@ fn drop_item(
             **next_slot = None;
         }
     }
+}
+
+fn init_recipe_menu(mut commands: Commands) {
+    commands.spawn((
+        NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                size: Size::all(Val::Percent(100.)),
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            ..default()
+        },
+        RecipeMenu,
+    ));
+}
+
+fn update_recipe_menu(
+    mut commands: Commands,
+    recipe_menu: Query<Entity, With<RecipeMenu>>,
+    slots: Query<Ref<InventorySlot>>,
+    recipes: Res<Recipes>,
+    assets: Res<GameAssets>,
+) {
+    if !slots.iter().any(|slot| slot.is_changed()) {
+        return;
+    }
+
+    let recipe_menu = recipe_menu.single();
+    commands.entity(recipe_menu).despawn_descendants();
+
+    let recipes = recipes
+        .iter()
+        .filter_map(|(item, recipe)| {
+            recipe.as_ref().and_then(|recipe| {
+                for (ingredient, count) in recipe {
+                    if slots
+                        .iter()
+                        .filter(|slot| ***slot == Some(*ingredient))
+                        .count()
+                        < *count as usize
+                    {
+                        return None;
+                    }
+                }
+
+                Some(
+                    commands
+                        .spawn((
+                            ButtonBundle {
+                                style: Style {
+                                    size: Size::all(Val::Px(64.)),
+                                    ..default()
+                                },
+                                image: assets.items[item].clone().into(),
+                                ..default()
+                            },
+                            Recipe(item),
+                        ))
+                        .id(),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+
+    commands.entity(recipe_menu).push_children(&recipes);
 }

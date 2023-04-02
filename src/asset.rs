@@ -19,6 +19,8 @@ fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
             Item::Metal => asset_server.load("art/metal.png"),
             Item::CannedFood => asset_server.load("art/canned_food.png"),
             Item::Plant => asset_server.load("art/plant.png"),
+            Item::Assembler => asset_server.load("art/assembler/on.png"),
+            Item::Generator => asset_server.load("art/generator/generator_4.png"),
         },
         empty_item: asset_server.load("art/empty_item.png"),
     })
