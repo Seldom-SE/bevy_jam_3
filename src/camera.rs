@@ -8,11 +8,14 @@ pub fn camera_plugin(app: &mut App) {
 }
 
 fn init(mut commands: Commands) {
-    commands.spawn((Camera2dBundle {
-        projection: OrthographicProjection {
-            scale: 0.4,
+    commands.spawn((
+        Camera2dBundle {
+            projection: OrthographicProjection {
+                scale: 0.4,
+                ..default()
+            },
             ..default()
         },
-        ..default()
-    }, PlayerCamera));
+        PlayerCamera,
+    ));
 }
