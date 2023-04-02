@@ -1,0 +1,6 @@
+[target.wasm32-unknown-unknown]
+runner = "wasm-server-runner"
+
+[alias]
+editor = "run --features editor"
+wasm = "run --target wasm32-unknown-unknown"
