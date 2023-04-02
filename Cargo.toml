@@ -8,7 +8,7 @@ bevy = "0.10"
 bevy_ecs_tilemap = "0.10.0"
 enum-map = "2.5.0"
 leafwing-input-manager = "0.9.1"
-rand = "0.8.5"
+rand = { version = "0.8.5", features = ["small_rng"] }
 seldom_fn_plugin = "0.3.0"
 
 [profile.release]
