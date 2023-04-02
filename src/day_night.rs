@@ -8,8 +8,8 @@ pub fn day_night_plugin(app: &mut App) {
     app.add_startup_system(init).add_system(update);
 }
 
-const MEAN_INTENSITY: f32 = 0.3;
-const INTENSITY_RANGE: f32 = 0.25;
+const MEAN_INTENSITY: f32 = 0.5;
+const INTENSITY_RANGE: f32 = 0.5;
 const DAY_COLOR: Vec3 = Vec3::new(0.85, 0.85, 0.6);
 const NIGHT_COLOR: Vec3 = Vec3::new(0.3, 0.45, 0.8);
 
