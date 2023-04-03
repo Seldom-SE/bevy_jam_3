@@ -17,6 +17,7 @@ use bevy::{
     sprite::SpritePlugin,
 };
 use camera::camera_plugin;
+use construct::construct_plugin;
 use day_night::day_night_plugin;
 use item::item_plugin;
 use map::map_plugin;
@@ -61,6 +62,7 @@ fn main() {
     app.insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
         .fn_plugin(asset_plugin)
         .fn_plugin(camera_plugin)
+        .fn_plugin(construct_plugin)
         .fn_plugin(item_plugin)
         .fn_plugin(map_plugin)
         .fn_plugin(player_plugin)

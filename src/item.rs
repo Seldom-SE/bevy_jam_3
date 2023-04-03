@@ -3,7 +3,7 @@ use rand::distributions::Standard;
 
 use crate::{
     asset::GameAssets,
-    construct::spawn_construct,
+    construct::{fuel_generator, spawn_construct},
     player::{Action, Player},
     prelude::*,
 };
@@ -26,19 +26,22 @@ pub enum Item {
     Metal,
     CannedFood,
     Plant,
+    FuelTank,
     Generator,
     Assembler,
 }
 
 impl Distribution<Item> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Item {
-        match rng.gen_range(0..4) {
-            0 => Item::Circuit,
-            1 => Item::Metal,
-            2 => Item::CannedFood,
-            3 => Item::Plant,
-            _ => unreachable!(),
-        }
+        *[
+            Item::Circuit,
+            Item::Metal,
+            Item::CannedFood,
+            Item::Plant,
+            Item::FuelTank,
+        ]
+        .choose(rng)
+        .unwrap()
     }
 }
 
@@ -62,7 +65,7 @@ struct Recipe(Item);
 impl Default for Recipes {
     fn default() -> Self {
         Self(enum_map! {
-            Item::Circuit | Item::Metal | Item::CannedFood | Item::Plant => None,
+            Item::Circuit | Item::Metal | Item::CannedFood | Item::Plant | Item::FuelTank => None,
             Item::Generator => Some(vec![(Item::Circuit, 1), (Item::Metal, 2)]),
             Item::Assembler => Some(vec![(Item::Circuit, 2), (Item::Metal, 1)]),
         })
@@ -70,21 +73,36 @@ impl Default for Recipes {
 }
 
 fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
-    let inventory = Inventory([(); INVENTORY_SIZE].map(|_| {
-        commands
-            .spawn((
-                ButtonBundle {
-                    style: Style {
-                        size: Size::all(Val::Px(64.)),
+    let inventory = Inventory(
+        [
+            // TEMP Convenient testing items
+            Some(Item::Generator),
+            Some(Item::FuelTank),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        ]
+        .map(|item| {
+            commands
+                .spawn((
+                    ButtonBundle {
+                        style: Style {
+                            size: Size::all(Val::Px(64.)),
+                            ..default()
+                        },
+                        image: assets.empty_item.clone().into(),
                         ..default()
                     },
-                    image: assets.empty_item.clone().into(),
-                    ..default()
-                },
-                InventorySlot(None),
-            ))
-            .id()
-    }));
+                    InventorySlot(item),
+                ))
+                .id()
+        }),
+    );
 
     commands
         .spawn(NodeBundle {
@@ -138,7 +156,8 @@ fn remove_item(item: Item, slots: &mut Query<&mut InventorySlot>, inventory: &In
     }
 }
 
-const COLLECTION_RADIUS: f32 = 32.;
+pub const INTERACT_RADIUS: f32 = 32.;
+
 fn collect_item(
     mut commands: Commands,
     players: Query<(&Transform, &ActionState<Action>), With<Player>>,
@@ -153,7 +172,7 @@ fn collect_item(
 
     let player_pos = player_transform.translation.truncate();
     for (item, item_transform, item_type) in &items {
-        if player_pos.distance(item_transform.translation.truncate()) >= COLLECTION_RADIUS {
+        if player_pos.distance(item_transform.translation.truncate()) >= INTERACT_RADIUS {
             continue;
         }
 
@@ -197,6 +216,7 @@ fn use_item(
 
     let Some(item) = **slots.get(slot_entity).unwrap() else { return };
     match item {
+        FuelTank => commands.add(fuel_generator(slot)),
         Generator | Assembler => commands.add(spawn_construct(slot, item.try_into().unwrap())),
         Circuit | Metal | CannedFood | Plant => (),
     };
