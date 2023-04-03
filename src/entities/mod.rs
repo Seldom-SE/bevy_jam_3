@@ -14,6 +14,8 @@ pub fn animation_plugin(app: &mut App) {
     app.add_startup_system(init)
         .add_system(animation)
         .add_system(follow_player_test);
+
+    app.register_type::<Animation>();
 }
 
 pub fn follow_player_test(
@@ -24,7 +26,7 @@ pub fn follow_player_test(
     let player_pos = player_transform.translation.xy();
     for (transform, stats, mut vel) in enemies.iter_mut() {
         let pos = transform.translation.xy();
-        if pos.distance_squared(player_pos) < 150.0 * 150.0 {
+        if pos.distance_squared(player_pos) < 80.0 * 80.0 {
             vel.0 = (player_pos - pos).normalize_or_zero() * stats.get(Stat::Speed);
         } else {
             vel.0 = Vec2::ZERO;
@@ -32,6 +34,7 @@ pub fn follow_player_test(
     }
 }
 
+#[derive(Reflect, FromReflect, Clone, Debug)]
 enum ClipMeta {
     /// Rotate towards velocity vector with an angle offset (in radians).
     RotateTowardsVelocity(f32),
@@ -39,6 +42,7 @@ enum ClipMeta {
     SpeedupWithVelocity,
 }
 
+#[derive(Reflect, FromReflect, Clone, Debug)]
 struct Clip {
     start: usize,
     end: usize,
@@ -67,7 +71,7 @@ impl Clip {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Reflect, FromReflect, Debug)]
 enum OnFinish {
     #[default]
     Repeat,
@@ -75,7 +79,7 @@ enum OnFinish {
     ReturnTo(usize),
 }
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Reflect, FromReflect, Debug)]
 struct Playing {
     clip: usize,
     frame: usize,
@@ -86,7 +90,8 @@ struct Playing {
 const IDLE_ANIMATION: usize = 0;
 const MOVE_ANIMATION: usize = 1;
 
-#[derive(Component)]
+#[derive(Component, Reflect, FromReflect, Default, Clone, Debug)]
+#[reflect(Component)]
 struct Animation {
     clips: Vec<Clip>,
     playing: Playing,
@@ -133,7 +138,7 @@ fn animation(
                         vel.0.x * a.cos() - vel.0.y * a.sin(),
                         vel.0.x * a.sin() + vel.0.y * a.cos(),
                         0.0,
-                    );
+                    ).try_normalize().unwrap_or(Vec3::Y);
                     transform.look_at(target, up);
                 }
                 ClipMeta::SpeedupWithVelocity => frame_time /= vel.0.length(),

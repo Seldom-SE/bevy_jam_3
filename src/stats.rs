@@ -37,7 +37,8 @@ impl Stats {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct Health(f32);
 
 impl Default for Health {
@@ -46,7 +47,8 @@ impl Default for Health {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Reflect, FromReflect)]
+#[reflect(Component)]
 pub struct Radiation(f32);
 
 impl Default for Radiation {
@@ -153,4 +155,7 @@ pub struct StatBundle {
 
 pub fn stat_plugin(app: &mut App) {
     app.add_system(stat_propegation);
+
+    app.register_type::<Health>()
+        .register_type::<Radiation>();
 }

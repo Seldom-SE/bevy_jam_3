@@ -21,11 +21,11 @@ fn sky_light(time: f32) -> Skylight2d {
 }
 
 fn init(mut commands: Commands) {
-    commands.spawn(sky_light(0.));
+    commands.spawn(sky_light(1.0));
 }
 
 const DAY_LENGTH: f32 = 50.;
 
 fn update(time: Res<Time>, mut skylights: Query<&mut Skylight2d>) {
-    *skylights.single_mut() = sky_light((time.elapsed_seconds() / DAY_LENGTH).fract() * TAU);
+    // *skylights.single_mut() = sky_light((time.elapsed_seconds() / DAY_LENGTH).fract() * TAU);
 }
