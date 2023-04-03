@@ -1,11 +1,12 @@
 use std::f32::consts::PI;
 
-use bevy::{ecs::system::EntityCommands, prelude::*, math::Vec3Swizzles};
+use bevy::{ecs::system::EntityCommands, math::Vec3Swizzles, prelude::*};
 
 use crate::{
     map::as_object_vec3,
     physics::Vel,
-    stats::{Stat, StatBundle, Stats}, player::Player,
+    player::Player,
+    stats::{Stat, StatBundle, Stats},
 };
 use enum_map::enum_map;
 
@@ -19,7 +20,7 @@ pub fn follow_player_test(
     player: Query<&Transform, With<Player>>,
     mut enemies: Query<(&Transform, &Stats, &mut Vel), Without<Player>>,
 ) {
-    let player_transform = player.single();
+    let Ok(player_transform) = player.get_single() else { return };
     let player_pos = player_transform.translation.xy();
     for (transform, stats, mut vel) in enemies.iter_mut() {
         let pos = transform.translation.xy();
@@ -111,7 +112,13 @@ fn init(
 
 fn animation(
     mut commands: Commands,
-    mut animations: Query<(Entity, &mut Animation, &mut TextureAtlasSprite, &mut Transform, &Vel)>,
+    mut animations: Query<(
+        Entity,
+        &mut Animation,
+        &mut TextureAtlasSprite,
+        &mut Transform,
+        &Vel,
+    )>,
     time: Res<Time>,
 ) {
     for (entity, mut animation, mut sprite, mut transform, vel) in animations.iter_mut() {
@@ -121,12 +128,12 @@ fn animation(
         for meta in current_clip.meta.iter() {
             match meta {
                 ClipMeta::RotateTowardsVelocity(a) => {
-                    let target = transform.translation  + Vec3::NEG_Z;
+                    let target = transform.translation + Vec3::NEG_Z;
                     let up = Vec3::new(
-                            vel.0.x * a.cos() - vel.0.y * a.sin(),
-                            vel.0.x * a.sin() + vel.0.y * a.cos(),
-                            0.0,
-                        );
+                        vel.0.x * a.cos() - vel.0.y * a.sin(),
+                        vel.0.x * a.sin() + vel.0.y * a.cos(),
+                        0.0,
+                    );
                     transform.look_at(target, up);
                 }
                 ClipMeta::SpeedupWithVelocity => frame_time /= vel.0.length(),
@@ -140,16 +147,24 @@ fn animation(
                 playing.frame = current_clip.end - current_clip.start - 1;
                 match animation.playing.on_finish {
                     OnFinish::Repeat => playing.frame = 0,
-                    OnFinish::Destroy => {
-                        commands.entity(entity).despawn()
-                    }
+                    OnFinish::Destroy => commands.entity(entity).despawn(),
                     OnFinish::ReturnTo(clip) => playing = Playing { clip, ..default() },
                 }
             }
         }
         match (playing.clip, vel.0.length() > 0.01) {
-            (IDLE_ANIMATION, true) => playing = Playing { clip: MOVE_ANIMATION, ..default() },
-            (MOVE_ANIMATION, false) => playing = Playing { clip: IDLE_ANIMATION, ..default() },
+            (IDLE_ANIMATION, true) => {
+                playing = Playing {
+                    clip: MOVE_ANIMATION,
+                    ..default()
+                }
+            }
+            (MOVE_ANIMATION, false) => {
+                playing = Playing {
+                    clip: IDLE_ANIMATION,
+                    ..default()
+                }
+            }
             _ => {}
         }
         animation.playing = playing;
