@@ -1,5 +1,3 @@
-use std::char::MAX;
-
 use bevy::ecs::system::SystemState;
 use enum_map::Enum;
 
@@ -12,7 +10,9 @@ use crate::{
 
 pub fn construct_plugin(app: &mut App) {
     app.add_system(update_generators)
-        .add_system(update_generator_sprites);
+        .add_system(update_generator_sprites)
+        .add_system(set_power)
+        .add_system(update_assemblers);
 }
 
 #[derive(Clone, Component, Copy, Enum)]
@@ -33,10 +33,18 @@ impl TryFrom<Item> for Construct {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct Generator {
     fuel: f32,
 }
+
+#[derive(Component, Default)]
+struct PowerConsumer {
+    source: Option<Entity>,
+}
+
+#[derive(Component, Default, Deref, DerefMut)]
+struct PowerSource(bool);
 
 const CONSTRUCT_SPACING: f32 = 32.;
 const CONSTRUCT_SCALE: f32 = 2.;
@@ -57,8 +65,8 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
             if transform
                 .translation
                 .truncate()
-                .distance(construct_transform.translation.truncate())
-                < CONSTRUCT_SPACING
+                .distance_squared(construct_transform.translation.truncate())
+                < CONSTRUCT_SPACING * CONSTRUCT_SPACING
             {
                 return;
             }
@@ -77,9 +85,10 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
         remove_item_at(slot, &mut slots, inventory.single());
 
         let mut entity = world.spawn(construct_bundle);
-        if let Construct::Generator = construct {
-            entity.insert(Generator { fuel: 0. });
-        }
+        match construct {
+            Construct::Generator => entity.insert((Generator::default(), PowerSource::default())),
+            Construct::Assembler => entity.insert(PowerConsumer::default()),
+        };
     }
 }
 
@@ -101,8 +110,8 @@ pub fn fuel_generator(slot: usize) -> impl Fn(&mut World) {
             if transform
                 .translation
                 .truncate()
-                .distance(generator_transform.translation.truncate())
-                < INTERACT_RADIUS
+                .distance_squared(generator_transform.translation.truncate())
+                < INTERACT_RADIUS * INTERACT_RADIUS
             {
                 generator = Some(curr_generator);
                 break;
@@ -116,10 +125,16 @@ pub fn fuel_generator(slot: usize) -> impl Fn(&mut World) {
     }
 }
 
-fn update_generators(mut generators: Query<&mut Generator>, time: Res<Time>) {
-    for mut generator in &mut generators {
+fn update_generators(mut generators: Query<(&mut Generator, &mut PowerSource)>, time: Res<Time>) {
+    for (mut generator, mut source) in &mut generators {
         if generator.fuel > 0. {
             generator.fuel -= time.delta_seconds();
+
+            if generator.fuel <= 0. {
+                **source = false;
+            } else if !**source {
+                **source = true;
+            }
         }
     }
 }
@@ -133,5 +148,42 @@ fn update_generator_sprites(
             * (assets.generators.len() as f32 - 1.))
             .ceil() as usize]
             .clone();
+    }
+}
+
+const POWER_RANGE: f32 = 128.;
+
+// Optimize this if it gets laggy
+fn set_power(
+    sources: Query<(Entity, &Transform, &PowerSource)>,
+    mut consumers: Query<(&Transform, &mut PowerConsumer)>,
+) {
+    'outer: for (consumer_transform, mut consumer) in &mut consumers {
+        for (source, source_transform, source_power) in &sources {
+            if source_transform
+                .translation
+                .truncate()
+                .distance_squared(consumer_transform.translation.truncate())
+                < POWER_RANGE * POWER_RANGE
+                && **source_power
+            {
+                consumer.source = Some(source);
+                continue 'outer;
+            }
+        }
+
+        consumer.source = None;
+    }
+}
+
+fn update_assemblers(
+    mut consumers: Query<(&PowerConsumer, &mut Handle<Image>), Changed<PowerConsumer>>,
+    assets: Res<GameAssets>,
+) {
+    for (consumer, mut image) in &mut consumers {
+        *image = match consumer.source {
+            Some(_) => assets.assemblers[1].clone(),
+            None => assets.assemblers[0].clone(),
+        };
     }
 }

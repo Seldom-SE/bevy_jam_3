@@ -76,9 +76,9 @@ fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
     let inventory = Inventory(
         [
             // TEMP Convenient testing items
+            Some(Item::Assembler),
             Some(Item::Generator),
             Some(Item::FuelTank),
-            None,
             None,
             None,
             None,
@@ -172,7 +172,9 @@ fn collect_item(
 
     let player_pos = player_transform.translation.truncate();
     for (item, item_transform, item_type) in &items {
-        if player_pos.distance(item_transform.translation.truncate()) >= INTERACT_RADIUS {
+        if player_pos.distance_squared(item_transform.translation.truncate())
+            >= INTERACT_RADIUS * INTERACT_RADIUS
+        {
             continue;
         }
 
