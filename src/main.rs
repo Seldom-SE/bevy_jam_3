@@ -42,6 +42,7 @@ fn main() {
             .set(WindowPlugin {
                 primary_window: Some(Window {
                     resolution: SCREEN_SIZE.into(),
+                    fit_canvas_to_parent: true,
                     title: "Bevy Jam 3".into(),
                     resizable: false,
                     ..default()
