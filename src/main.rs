@@ -2,6 +2,7 @@
 
 mod asset;
 mod camera;
+mod construct;
 mod day_night;
 mod item;
 mod map;

@@ -3,6 +3,7 @@ use rand::distributions::Standard;
 
 use crate::{
     asset::GameAssets,
+    construct::spawn_construct,
     player::{Action, Player},
     prelude::*,
 };
@@ -13,6 +14,7 @@ pub fn item_plugin(app: &mut App) {
         .add_startup_system(init_recipe_menu)
         .add_system(collect_item)
         .add_system(update_item_image)
+        .add_system(use_item)
         .add_system(drop_item)
         .add_system(update_recipe_menu)
         .add_system(craft_item);
@@ -43,10 +45,10 @@ impl Distribution<Item> for Standard {
 const INVENTORY_SIZE: usize = 10;
 
 #[derive(Component, Deref, DerefMut)]
-struct Inventory([Entity; INVENTORY_SIZE]);
+pub struct Inventory([Entity; INVENTORY_SIZE]);
 
 #[derive(Component, Deref, DerefMut)]
-struct InventorySlot(Option<Item>);
+pub struct InventorySlot(Option<Item>);
 
 #[derive(Deref, DerefMut, Resource)]
 struct Recipes(EnumMap<Item, Option<Vec<(Item, u8)>>>);
@@ -112,7 +114,7 @@ fn add_item(item: Item, slots: &mut Query<&mut InventorySlot>, inventory: &Inven
     false
 }
 
-fn remove_item_at(slot: usize, slots: &mut Query<&mut InventorySlot>, inventory: &Inventory) {
+pub fn remove_item_at(slot: usize, slots: &mut Query<&mut InventorySlot>, inventory: &Inventory) {
     for curr_slot in slot..INVENTORY_SIZE - 1 {
         let [mut curr_slot, mut next_slot] = slots
             .get_many_mut([inventory[curr_slot], inventory[curr_slot + 1]])
@@ -175,12 +177,35 @@ fn update_item_image(
     }
 }
 
+fn use_item(
+    mut commands: Commands,
+    interactions: Query<(Entity, &Interaction), (With<InventorySlot>, Changed<Interaction>)>,
+    slots: Query<&InventorySlot>,
+    inventory: Query<&Inventory>,
+) {
+    use Item::*;
+
+    let Some((slot_entity, _)) = interactions.iter().find(|(_, &interaction)| {
+        interaction == Interaction::Clicked
+    }) else { return };
+
+    let slot = inventory
+        .single()
+        .iter()
+        .position(|&slot| slot == slot_entity)
+        .unwrap();
+
+    let Some(item) = **slots.get(slot_entity).unwrap() else { return };
+    match item {
+        Generator | Assembler => commands.add(spawn_construct(slot, item.try_into().unwrap())),
+        Circuit | Metal | CannedFood | Plant => (),
+    };
+}
+
 fn drop_item(
     mut commands: Commands,
-    mut slots: ParamSet<(
-        Query<(Entity, &mut InventorySlot, &Interaction)>,
-        Query<&mut InventorySlot>,
-    )>,
+    interactions: Query<(Entity, &Interaction), With<InventorySlot>>,
+    mut slots: Query<&mut InventorySlot>,
     inventory: Query<&Inventory>,
     players: Query<&Transform, With<Player>>,
     mouse: Res<Input<MouseButton>>,
@@ -195,12 +220,12 @@ fn drop_item(
     let inventory = inventory.single();
     let mut clicked_slot = None;
 
-    for (slot_entity, slot, &interaction) in slots.p0().iter() {
+    for (slot_entity, &interaction) in &interactions {
         if interaction != Interaction::Hovered {
             continue;
         }
 
-        let Some(item) = **slot else { return };
+        let Some(item) = **slots.get(slot_entity).unwrap() else { return };
 
         commands.spawn((
             SpriteBundle {
@@ -220,7 +245,7 @@ fn drop_item(
     }
 
     if let Some(slot) = clicked_slot {
-        remove_item_at(slot, &mut slots.p1(), inventory);
+        remove_item_at(slot, &mut slots, inventory);
     }
 }
 
