@@ -120,7 +120,6 @@ fn update_generators(mut generators: Query<&mut Generator>, time: Res<Time>) {
     for mut generator in &mut generators {
         if generator.fuel > 0. {
             generator.fuel -= time.delta_seconds();
-            println!("Fuel: {}", generator.fuel)
         }
     }
 }
