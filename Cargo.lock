@@ -538,7 +538,7 @@ dependencies = [
 [[package]]
 name = "bevy_ecs_tilemap"
 version = "0.10.0"
-source = "git+https://github.com/IsseW/bevy_ecs_tilemap#49c7b0bb8a210b510bd9659e662b8a59940dca47"
+source = "git+https://github.com/IsseW/bevy_ecs_tilemap#336696c72d03aba8301e4d21a0b214030d3c2daf"
 dependencies = [
  "bevy",
  "log",
