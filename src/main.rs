@@ -17,6 +17,7 @@ use bevy::{
     render::render_resource::{FilterMode, SamplerDescriptor},
     sprite::SpritePlugin,
 };
+use bevy_kira_audio::{AudioPlugin, prelude::SpacialAudio};
 use camera::camera_plugin;
 use construct::construct_plugin;
 use day_night::day_night_plugin;
@@ -65,6 +66,8 @@ fn main() {
     app.add_plugin(bevy_editor_pls::prelude::EditorPlugin::default());
     // Basic setup.
     app.insert_resource(ClearColor(Color::rgb_u8(0, 0, 0)))
+        .insert_resource(SpacialAudio { max_distance: 500. })
+        .add_plugin(AudioPlugin)
         .fn_plugin(asset_plugin)
         .fn_plugin(camera_plugin)
         .fn_plugin(construct_plugin)

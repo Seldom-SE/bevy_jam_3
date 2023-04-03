@@ -1,3 +1,4 @@
+use bevy_kira_audio::AudioSource;
 use enum_map::{enum_map, EnumMap};
 
 use crate::{construct::Construct, item::Item, prelude::*};
@@ -13,6 +14,7 @@ pub struct GameAssets {
     pub constructs: EnumMap<Construct, Handle<Image>>,
     pub generators: [Handle<Image>; 5],
     pub assemblers: [Handle<Image>; 2],
+    pub assembler_sound: Handle<AudioSource>,
 }
 
 fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -44,5 +46,6 @@ fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
             generator_item,
         ],
         assemblers: [assembler_off, assembler_on],
+        assembler_sound: asset_server.load("sound/engine.ogg"),
     })
 }

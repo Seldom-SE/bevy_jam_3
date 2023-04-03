@@ -5,6 +5,7 @@ use crate::{
     prelude::*,
     stats::{Stat, StatBundle, Stats},
 };
+use bevy_kira_audio::prelude::AudioReceiver;
 use enum_map::enum_map;
 
 pub fn player_plugin(app: &mut App) {
@@ -75,12 +76,14 @@ fn init(
             strength: 5.0,
             falloff: 0.45,
         },
+        AudioReceiver,
     ));
 }
 
 fn player_move(
     mut players: Query<(&mut Vel, &Transform, &Stats, &ActionState<Action>), With<Player>>,
     mut cameras: Query<&mut Transform, (With<PlayerCamera>, Without<Player>)>,
+    time: Res<Time>,
 ) {
     let Ok((mut vel, transform, stats, state)) = players.get_single_mut() else { return };
 
@@ -97,10 +100,15 @@ fn player_move(
     }
 
     let camera_translation = &mut cameras.single_mut().translation;
-    *camera_translation = transform
+    let target = transform
         .translation
         .truncate()
         .extend(camera_translation.z);
+    let dir = (target - *camera_translation).truncate();
+    let l = dir.length();
+    const CAM_SPEED: f32 = 8.0;
+    let m = if l == 0.0 { Vec2::ZERO } else { dir / l } * (l * time.delta_seconds() * CAM_SPEED).max(time.delta_seconds() * CAM_SPEED).min(l);
+    *camera_translation += m.extend(0.0);
 }
 
 #[derive(Default, Deref, DerefMut, Resource)]
