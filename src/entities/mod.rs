@@ -138,7 +138,9 @@ fn animation(
                         vel.0.x * a.cos() - vel.0.y * a.sin(),
                         vel.0.x * a.sin() + vel.0.y * a.cos(),
                         0.0,
-                    ).try_normalize().unwrap_or(Vec3::Y);
+                    )
+                    .try_normalize()
+                    .unwrap_or(Vec3::Y);
                     transform.look_at(target, up);
                 }
                 ClipMeta::SpeedupWithVelocity => frame_time /= vel.0.length(),
@@ -213,4 +215,22 @@ pub fn spawn_slime<'w, 's, 'a>(
         },
         Vel::default(),
     ))
+}
+
+#[derive(Clone, Copy)]
+pub enum Enemy {
+    Slime,
+}
+
+impl Enemy {
+    pub fn spawn<'w, 's, 'a>(
+        &self,
+        position: Vec2,
+        commands: &'a mut Commands<'w, 's>,
+        atlases: &TextureAtlases,
+    ) -> EntityCommands<'w, 's, 'a> {
+        match self {
+            Enemy::Slime => spawn_slime(position, commands, atlases),
+        }
+    }
 }

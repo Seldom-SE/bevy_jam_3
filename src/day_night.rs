@@ -21,7 +21,10 @@ fn sky_light(time: f32) -> Skylight2d {
 }
 
 fn init(mut commands: Commands) {
-    commands.spawn(sky_light(1.0));
+    commands.spawn(Skylight2d {
+        color: Color::WHITE,
+        strength: 2.0,
+    });
 }
 
 const DAY_LENGTH: f32 = 50.;

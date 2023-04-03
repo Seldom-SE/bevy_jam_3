@@ -1,5 +1,5 @@
 #![allow(clippy::type_complexity)]
-
+#![feature(int_roundings)]
 mod asset;
 mod camera;
 mod construct;
@@ -46,7 +46,7 @@ fn main() {
                     // Allow keys like `F11` to work in the browser.
                     prevent_default_event_handling: false,
                     title: "Bevy Jam 3".into(),
-                    resizable: false,
+                    resizable: true,
                     ..default()
                 }),
                 ..default()

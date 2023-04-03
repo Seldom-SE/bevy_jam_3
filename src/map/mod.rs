@@ -1,9 +1,18 @@
+mod gen;
+
 use bevy::{
     math::{Vec3Swizzles, Vec4Swizzles},
     utils::HashMap,
 };
 
-use crate::{asset::GameAssets, physics::Vel, prelude::*, SCREEN_SIZE, entities::{spawn_slime, TextureAtlases}};
+use crate::{
+    asset::GameAssets,
+    entities::{spawn_slime, TextureAtlases},
+    item::Item,
+    physics::Vel,
+    prelude::*,
+    SCREEN_SIZE,
+};
 
 pub fn map_plugin(app: &mut App) {
     app.add_plugin(TilemapPlugin)
@@ -27,17 +36,8 @@ const Z_BASE_OBJECTS: f32 = 200.; // Ground object sprites.
 const FLOOR_LAYER: f32 = 0.;
 const WALL_LAYER: f32 = 1.;
 const SCALE: f32 = 1.;
-const RANDOM_WALL_CHANCE: f32 = 0.05;
-const STRUCTURE_DENSITY: f32 = 0.005;
-const MIN_STRUCTURE_SIZE: u32 = 4;
-const MAX_STRUCTURE_SIZE: u32 = 16;
-const MIN_STRUCTURE_DAMAGE: f32 = 0.2;
-const MAX_STRUCTURE_DAMAGE: f32 = 0.6;
-const NUCLEAR_POOL_CHANCE: f32 = 0.3;
-const NUCLEAR_POOL_SIZE: u32 = 4;
-const NUCLEAR_POOL_NOISE: f32 = 4.;
-const ITEM_CHANCE: f32 = 0.3;
 
+const SEED: u32 = 41;
 pub struct Chunk {
     pub floor: Entity,
     // pub detail: Entity,
@@ -241,93 +241,26 @@ fn spawn_chunk(
         0.0,
     ));
     transform.scale = Vec2::splat(SCALE).extend(1.);
-    let mut rng = SmallRng::seed_from_u64(((chunk_pos.x as u64) << 32) | chunk_pos.y as u64);
+    let seed = SEED;
+    let chunk_data = gen::gen_chunk(chunk_pos, seed);
+    let mut rng = SmallRng::seed_from_u64(
+        (((chunk_pos.x as u64) << 32) | chunk_pos.y as u64).rotate_right(11)
+            ^ ((seed as u64) << 15),
+    );
 
-    let mut floors = vec![0; (CHUNK_SIZE * CHUNK_SIZE) as usize];
+    for (pos, item) in chunk_data.items {
+        commands.spawn((
+            SpriteBundle {
+                texture: assets.items[item].clone(),
+                transform: Transform::from_translation(as_object_vec3(pos * TILE_SIZE)),
+                ..default()
+            },
+            item,
+        ));
+    }
 
-    let mut walls = (0..CHUNK_SIZE * CHUNK_SIZE)
-        .map(|_| rng.gen_bool(RANDOM_WALL_CHANCE as f64))
-        .collect::<Vec<_>>();
-
-    for _ in 0..((CHUNK_SIZE * CHUNK_SIZE) as f32 * STRUCTURE_DENSITY) as u32 {
-        let x_size = rng.gen_range(MIN_STRUCTURE_SIZE..MAX_STRUCTURE_SIZE);
-        let y_size = rng.gen_range(MIN_STRUCTURE_SIZE..MAX_STRUCTURE_SIZE);
-        let x_start = (rng.gen::<f32>() * (CHUNK_SIZE - x_size) as f32) as u32;
-        let y_start = (rng.gen::<f32>() * (CHUNK_SIZE - y_size) as f32) as u32;
-        let x_center = x_start + x_size / 2;
-        let y_center = y_start + y_size / 2;
-
-        let damage = rng.gen_range(MIN_STRUCTURE_DAMAGE..MAX_STRUCTURE_DAMAGE);
-        let nuclear_pool = rng.gen_bool(NUCLEAR_POOL_CHANCE as f64);
-
-        for x in x_start..x_start + x_size {
-            for y in y_start..y_start + y_size {
-                floors[(x + y * CHUNK_SIZE) as usize] = if nuclear_pool
-                    && ((x as i32 - x_center as i32).pow(2)
-                        + (y as i32 - y_center as i32).pow(2)
-                        + rng.gen_range(0.0..NUCLEAR_POOL_NOISE) as i32)
-                        < NUCLEAR_POOL_SIZE.pow(2) as i32
-                {
-                    match (x % 2, y % 2) {
-                        (0, 0) => 8,
-                        (1, 0) => 9,
-                        (0, 1) => 12,
-                        (1, 1) => 13,
-                        _ => unreachable!(),
-                    }
-                } else {
-                    [2, 3, 6, 7, 10, 11, 14, 15]
-                        .choose(&mut rng)
-                        .copied()
-                        .unwrap()
-                }
-            }
-        }
-
-        for (x, y) in [
-            (Some(x_start), None),
-            (Some(x_start + x_size - 1), None),
-            (None, Some(y_start)),
-            (None, Some(y_start + y_size - 1)),
-        ] {
-            for x in x
-                .map(|x| x..x + 1)
-                .unwrap_or_else(|| x_start..x_start + x_size)
-            {
-                for y in y
-                    .map(|y| y..y + 1)
-                    .unwrap_or_else(|| y_start..y_start + y_size)
-                {
-                    if !rng.gen_bool(damage as f64) {
-                        walls[(x + y * CHUNK_SIZE) as usize] = true;
-                    }
-                }
-            }
-        }
-
-        while rng.gen_bool(ITEM_CHANCE as f64) {
-            let x = rng.gen_range((x_start as f32 + 2.)..(x_start + x_size - 1) as f32) * TILE_SIZE;
-            let y = rng.gen_range((y_start as f32 + 2.)..(y_start + y_size - 1) as f32) * TILE_SIZE;
-
-            let item = rng.gen();
-            commands.spawn((
-                SpriteBundle {
-                    texture: assets.items[item].clone(),
-                    transform: Transform::from_translation(
-                        transform.translation + Vec3::new(x, y, get_object_z(y)),
-                    ),
-                    ..default()
-                },
-                item,
-            ));
-        }
-
-        while rng.gen_bool(ITEM_CHANCE as f64) {
-            let x = rng.gen_range((x_start as f32 + 2.)..(x_start + x_size - 1) as f32) * TILE_SIZE;
-            let y = rng.gen_range((y_start as f32 + 2.)..(y_start + y_size - 1) as f32) * TILE_SIZE;
-
-            spawn_slime(transform.translation.xy() + Vec2::new(x, y), commands, atlases);
-        }
+    for (pos, enemy) in chunk_data.enemies {
+        enemy.spawn(pos * TILE_SIZE, commands, atlases);
     }
 
     let floor = {
@@ -335,16 +268,29 @@ fn spawn_chunk(
         let mut floor_storage = TileStorage::empty(map_size);
         let floor_map = commands.spawn(ChunkMarker).id();
 
-        for (i, floor) in floors.into_iter().enumerate() {
+        for (i, floor) in chunk_data.floor.into_iter().enumerate() {
             let position = TilePos {
                 x: i as u32 % CHUNK_SIZE,
                 y: i as u32 / CHUNK_SIZE,
             };
-
             let tile = commands
                 .spawn(TileBundle {
                     position,
-                    texture_index: TileTextureIndex(floor),
+                    texture_index: TileTextureIndex(match floor {
+                        gen::FloorTile::Ground => 0,
+                        gen::FloorTile::Water => match (position.x % 2, position.y % 2) {
+                            (0, 0) => 8,
+                            (1, 0) => 9,
+                            (0, 1) => 12,
+                            (1, 1) => 13,
+                            _ => unreachable!(),
+                        },
+                        gen::FloorTile::Concrete => [2, 3, 6, 7, 10, 11, 14, 15]
+                            .choose(&mut rng)
+                            .copied()
+                            .unwrap(),
+                        gen::FloorTile::Floor => 3,
+                    }),
                     tilemap_id: TilemapId(floor_map),
                     ..default()
                 })
@@ -373,23 +319,25 @@ fn spawn_chunk(
         let mut wall_storage = TileStorage::empty(map_size);
         let wall_map = commands.spawn(ChunkMarker).id();
 
-        for (i, wall) in walls.into_iter().enumerate() {
-            if wall {
-                let position = TilePos {
-                    x: i as u32 % CHUNK_SIZE,
-                    y: i as u32 / CHUNK_SIZE,
-                };
+        for (i, wall) in chunk_data.walls.into_iter().enumerate() {
+            let tile_texture_index = match wall {
+                gen::WallTile::None => continue,
+                gen::WallTile::Wall => 20,
+            };
+            let position = TilePos {
+                x: i as u32 % CHUNK_SIZE,
+                y: i as u32 / CHUNK_SIZE,
+            };
 
-                let tile = commands
-                    .spawn(TileBundle {
-                        position,
-                        texture_index: TileTextureIndex(20),
-                        tilemap_id: TilemapId(wall_map),
-                        ..default()
-                    })
-                    .id();
-                wall_storage.set(&position, tile);
-            }
+            let tile = commands
+                .spawn(TileBundle {
+                    position,
+                    texture_index: TileTextureIndex(tile_texture_index),
+                    tilemap_id: TilemapId(wall_map),
+                    ..default()
+                })
+                .id();
+            wall_storage.set(&position, tile);
         }
 
         let mut wall_transform = transform;

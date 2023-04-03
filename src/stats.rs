@@ -90,7 +90,9 @@ fn stat_propegation(
     // Do radiation damage
     for (_, stats, mut health, mut radiation) in query.iter_mut() {
         if radiation.0 > 0.8 {
-            health.0 -= stats.calc_damage(stats.calc_radiation_damage((radiation.0 - 0.8) * time.delta_seconds()));
+            health.0 -= stats.calc_damage(
+                stats.calc_radiation_damage((radiation.0 - 0.8) * time.delta_seconds()),
+            );
         } else if radiation.0 > 0.0 {
             radiation.0 -= time.delta_seconds() * 0.1;
         }
@@ -156,6 +158,5 @@ pub struct StatBundle {
 pub fn stat_plugin(app: &mut App) {
     app.add_system(stat_propegation);
 
-    app.register_type::<Health>()
-        .register_type::<Radiation>();
+    app.register_type::<Health>().register_type::<Radiation>();
 }
