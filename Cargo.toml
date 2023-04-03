@@ -30,6 +30,6 @@ incremental = true
 
 [profile.dev]
 codegen-units = 16
-opt-level = 0
+opt-level = 1
 debug = true
 incremental = true
