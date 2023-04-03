@@ -3,7 +3,7 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::{asset::GameAssets, physics::Vel, prelude::*, SCREEN_SIZE};
+use crate::{asset::GameAssets, physics::Vel, prelude::*, SCREEN_SIZE, entities::{spawn_slime, TextureAtlases}};
 
 pub fn map_plugin(app: &mut App) {
     app.add_plugin(TilemapPlugin)
@@ -223,6 +223,7 @@ fn spawn_chunk(
     commands: &mut Commands,
     assets: &GameAssets,
     asset_server: &AssetServer,
+    atlases: &TextureAtlases,
     chunk_pos: IVec2,
 ) -> Chunk {
     let map_size = TilemapSize {
@@ -320,6 +321,13 @@ fn spawn_chunk(
                 item,
             ));
         }
+
+        while rng.gen_bool(ITEM_CHANCE as f64) {
+            let x = rng.gen_range((x_start as f32 + 2.)..(x_start + x_size - 1) as f32) * TILE_SIZE;
+            let y = rng.gen_range((y_start as f32 + 2.)..(y_start + y_size - 1) as f32) * TILE_SIZE;
+
+            spawn_slime(transform.translation.xy() + Vec2::new(x, y), commands, atlases);
+        }
     }
 
     let floor = {
@@ -412,6 +420,7 @@ fn spawn_chunks_around_camera(
     camera_query: Query<&Transform, With<Camera>>,
     asset_server: Res<AssetServer>,
     assets: Res<GameAssets>,
+    atlases: Res<TextureAtlases>,
     mut chunk_manager: ResMut<ChunkManager>,
 ) {
     for transform in camera_query.iter() {
@@ -420,7 +429,7 @@ fn spawn_chunks_around_camera(
             for x in (camera_chunk_pos.x - 2)..=(camera_chunk_pos.x + 2) {
                 let cpos = IVec2::new(x, y);
                 if !chunk_manager.chunks.contains_key(&cpos) {
-                    let chunk = spawn_chunk(&mut commands, &assets, &asset_server, cpos);
+                    let chunk = spawn_chunk(&mut commands, &assets, &asset_server, &atlases, cpos);
                     chunk_manager.chunks.insert(cpos, chunk);
                     // Don't generate more than one chunk per tick.
                     return;

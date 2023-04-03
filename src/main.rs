@@ -4,6 +4,7 @@ mod asset;
 mod camera;
 mod construct;
 mod day_night;
+mod entities;
 mod item;
 mod map;
 mod physics;
@@ -19,6 +20,7 @@ use bevy::{
 use camera::camera_plugin;
 use construct::construct_plugin;
 use day_night::day_night_plugin;
+use entities::animation_plugin;
 use item::item_plugin;
 use map::map_plugin;
 use physics::physics_plugin;
@@ -69,6 +71,7 @@ fn main() {
         .fn_plugin(day_night_plugin)
         .fn_plugin(stat_plugin)
         .fn_plugin(physics_plugin)
+        .fn_plugin(animation_plugin)
         .run();
 }
 

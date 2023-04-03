@@ -61,7 +61,7 @@ fn init(
         },
         StatBundle {
             stats: Stats::new(enum_map! {
-                Stat::Speed => 5.0,
+                Stat::Speed => 200.0,
                 Stat::Health => 30.0,
                 Stat::Sight => 1.0,
                 Stat::RadiationResistence => 0.0,
@@ -78,13 +78,11 @@ fn init(
     ));
 }
 
-const PLAYER_SPEED: f32 = 200.0;
-
 fn player_move(
-    mut players: Query<(&mut Vel, &Transform, &ActionState<Action>), With<Player>>,
+    mut players: Query<(&mut Vel, &Transform, &Stats, &ActionState<Action>), With<Player>>,
     mut cameras: Query<&mut Transform, (With<PlayerCamera>, Without<Player>)>,
 ) {
-    let Ok((mut vel, transform, state)) = players.get_single_mut() else { return };
+    let Ok((mut vel, transform, stats, state)) = players.get_single_mut() else { return };
 
     if state.pressed(Action::Move) {
         vel.0 = state
@@ -93,7 +91,7 @@ fn player_move(
             .xy()
             // TODO Avoid normalizing control stick
             .normalize_or_zero()
-            * PLAYER_SPEED;
+            * stats.get(Stat::Speed);
     } else {
         vel.0 = Vec2::ZERO;
     }
@@ -110,7 +108,7 @@ pub struct CursorPos(Vec2);
 
 fn update_cursor_pos(
     windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
+    cameras: Query<(&Camera, &GlobalTransform), With<PlayerCamera>>,
     mut cursor_pos: ResMut<CursorPos>,
 ) {
     let (camera, camera_transform) = cameras.single();
