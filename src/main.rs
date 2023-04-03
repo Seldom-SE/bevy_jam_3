@@ -43,6 +43,8 @@ fn main() {
                 primary_window: Some(Window {
                     resolution: SCREEN_SIZE.into(),
                     fit_canvas_to_parent: true,
+                    // Allow keys like `F11` to work in the browser.
+                    prevent_default_event_handling: false,
                     title: "Bevy Jam 3".into(),
                     resizable: false,
                     ..default()
