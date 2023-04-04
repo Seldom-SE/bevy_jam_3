@@ -11,6 +11,7 @@ use crate::{
     item::{remove_item_at, Inventory, InventorySlot, Item, INTERACT_RADIUS},
     player::Player,
     prelude::*,
+    stats::RadiationSource,
 };
 
 pub fn construct_plugin(app: &mut App) {
@@ -53,6 +54,7 @@ pub struct PowerSource(bool);
 
 const CONSTRUCT_SPACING: f32 = 32.;
 const CONSTRUCT_SCALE: f32 = 2.;
+const GENERATOR_RADIATION: f32 = 0.05;
 
 pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World) {
     move |world: &mut World| {
@@ -92,7 +94,14 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
 
         let mut entity = world.spawn(construct_bundle);
         match construct {
-            Construct::Generator => entity.insert((Generator::default(), PowerSource::default())),
+            Construct::Generator => entity.insert((
+                Generator::default(),
+                PowerSource::default(),
+                RadiationSource {
+                    strength: GENERATOR_RADIATION,
+                    active: false,
+                },
+            )),
             Construct::Assembler => entity.insert(PowerConsumer::default()),
         };
     }
@@ -131,15 +140,20 @@ pub fn fuel_generator(slot: usize) -> impl Fn(&mut World) {
     }
 }
 
-fn update_generators(mut generators: Query<(&mut Generator, &mut PowerSource)>, time: Res<Time>) {
-    for (mut generator, mut source) in &mut generators {
+fn update_generators(
+    mut generators: Query<(&mut Generator, &mut PowerSource, &mut RadiationSource)>,
+    time: Res<Time>,
+) {
+    for (mut generator, mut source, mut radiation) in &mut generators {
         if generator.fuel > 0. {
             generator.fuel -= time.delta_seconds();
 
             if generator.fuel <= 0. {
                 **source = false;
+                radiation.active = false;
             } else if !**source {
                 **source = true;
+                radiation.active = true;
             }
         }
     }

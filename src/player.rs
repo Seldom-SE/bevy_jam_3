@@ -67,7 +67,7 @@ fn init(
                 Stat::Speed => 200.0,
                 Stat::Health => 30.0,
                 Stat::Sight => 1.0,
-                Stat::RadiationResistence => f32::INFINITY,
+                Stat::RadiationResistence => 1.,
             }),
             ..default()
         },

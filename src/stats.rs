@@ -59,6 +59,12 @@ impl Default for Radiation {
     }
 }
 
+#[derive(Component)]
+pub struct RadiationSource {
+    pub strength: f32,
+    pub active: bool,
+}
+
 fn stat_propegation(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Stats, &mut Health, &mut Radiation)>,
@@ -95,8 +101,10 @@ fn stat_propegation(
             health.0 -= stats.calc_damage(
                 stats.calc_radiation_damage((radiation.0 - 0.8) * time.delta_seconds()),
             );
-        } else if radiation.0 > 0.0 {
-            radiation.0 -= time.delta_seconds() * 0.005;
+        }
+
+        if radiation.0 > 0.0 {
+            radiation.0 -= time.delta_seconds() * 0.003;
         }
         radiation.0 = radiation.0.clamp(0.0, 1.0);
     }
@@ -166,7 +174,8 @@ struct RadiationBar;
 pub fn stat_plugin(app: &mut App) {
     app.add_startup_system(init_ui)
         .add_system(stat_propegation)
-        .add_system(update_ui);
+        .add_system(update_ui)
+        .add_system(absorb_radiation);
 
     app.register_type::<Health>().register_type::<Radiation>();
 }
@@ -210,7 +219,7 @@ fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     parent.spawn((
                         TextBundle::from_section(
-                            "Radiation: 33",
+                            "Radiation: 50",
                             TextStyle {
                                 font,
                                 font_size: 40.0,
@@ -235,4 +244,27 @@ fn update_ui(
 
     let mut radiation_text = radiations.single_mut();
     radiation_text.sections[0].value = format!("Radiation: {}", (radiation.0 * 100.).ceil());
+}
+
+const RADIATION_RANGE: f32 = 64.;
+
+fn absorb_radiation(
+    mut consumers: Query<(&mut Radiation, &Stats, &Transform)>,
+    sources: Query<(&RadiationSource, &Transform)>,
+    time: Res<Time>,
+) {
+    for (mut radiation, stats, consumer_transform) in consumers.iter_mut() {
+        for (source, source_transform) in sources.iter() {
+            if source.active
+                && source_transform
+                    .translation
+                    .distance_squared(consumer_transform.translation)
+                    < RADIATION_RANGE * RADIATION_RANGE
+            {
+                **radiation +=
+                    source.strength / stats.get(Stat::RadiationResistence) * time.delta_seconds();
+                **radiation = radiation.clamp(0., 1.);
+            }
+        }
+    }
 }
