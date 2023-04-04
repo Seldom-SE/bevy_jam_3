@@ -1,12 +1,13 @@
 use std::ops::RangeInclusive;
 
-use crate::{entities::Enemy, item::Item};
+use crate::{construct::Construct, entities::Enemy, item::Item};
 
 use super::CHUNK_SIZE;
 
 use vek::*;
 
-const ITEM_CHANCE: f32 = 0.3;
+const ITEM_CHANCE: f32 = 0.6;
+const ASSEMBLER_CHANCE: f32 = 0.3;
 
 #[derive(Clone, Copy)]
 pub struct RandomField(pub u32);
@@ -217,6 +218,7 @@ pub struct ChunkData {
     pub floor: Vec<FloorTile>,
     pub walls: Vec<WallTile>,
     pub items: Vec<(bevy::prelude::Vec2, Item)>,
+    pub constructs: Vec<(bevy::prelude::Vec2, Construct)>,
     pub enemies: Vec<(bevy::prelude::Vec2, Enemy)>,
 }
 
@@ -321,6 +323,14 @@ impl ChunkData {
         }
     }
 
+    fn construct(&mut self, pos: Vec2<f32>, construct: Construct) {
+        let aabr = self.aabr();
+        if aabr.contains_point(pos.as_()) {
+            self.constructs
+                .push((bevy::prelude::Vec2::from_array(pos.into_array()), construct));
+        }
+    }
+
     fn enemy(&mut self, pos: Vec2<f32>, enemy: Enemy) {
         let aabr = self.aabr();
         if aabr.contains_point(pos.as_()) {
@@ -345,6 +355,7 @@ impl Default for ChunkData {
             floor: vec![FloorTile::default(); (CHUNK_SIZE * CHUNK_SIZE) as usize],
             walls: vec![WallTile::default(); (CHUNK_SIZE * CHUNK_SIZE) as usize],
             items: Default::default(),
+            constructs: Default::default(),
             enemies: Default::default(),
         }
     }
@@ -456,6 +467,15 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
                 + b.min
                 + 1.0;
             chunk.item(p, item);
+        }
+
+        if field.chance(Vec2::new(i + 1, 0), ASSEMBLER_CHANCE) {
+            // I don't understand this math, I'm just copying it lol
+            let p = Vec2::new(3, -3).map(|i| field.gen_f32(Vec2::new((2 + i) * i, 0)))
+                * (b.max - b.min - 2.0)
+                + b.min
+                + 1.0;
+            chunk.construct(p, Construct::Assembler);
         }
     }
 

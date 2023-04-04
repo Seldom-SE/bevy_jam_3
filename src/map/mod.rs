@@ -252,6 +252,10 @@ fn spawn_chunk(
         ));
     }
 
+    for (pos, construct) in chunk_data.constructs {
+        construct.bundle(pos * TILE_SIZE, assets).spawn(commands);
+    }
+
     for (pos, enemy) in chunk_data.enemies {
         enemy.spawn(pos * TILE_SIZE, commands, atlases);
     }

@@ -4,6 +4,7 @@ mod asset;
 mod camera;
 mod construct;
 mod day_night;
+mod ecs;
 mod entities;
 mod item;
 mod map;

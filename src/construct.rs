@@ -8,7 +8,9 @@ use enum_map::Enum;
 
 use crate::{
     asset::GameAssets,
+    ecs::DynBundle,
     item::{remove_item_at, Inventory, InventorySlot, Item, INTERACT_RADIUS},
+    map::as_object_vec3,
     player::Player,
     prelude::*,
     stats::RadiationSource,
@@ -35,6 +37,34 @@ impl TryFrom<Item> for Construct {
             Item::Generator => Ok(Construct::Generator),
             Item::Assembler => Ok(Construct::Assembler),
             _ => Err(()),
+        }
+    }
+}
+
+impl Construct {
+    pub fn bundle(self, pos: Vec2, assets: &GameAssets) -> Box<dyn DynBundle> {
+        let common = (
+            SpriteBundle {
+                texture: assets.constructs[self].clone(),
+                transform: Transform::from_translation(as_object_vec3(pos))
+                    .with_scale(Vec2::splat(CONSTRUCT_SCALE).extend(1.)),
+                ..default()
+            },
+            self,
+            AudioEmitter { instances: vec![] },
+        );
+
+        match self {
+            Construct::Generator => Box::new((
+                common,
+                Generator::default(),
+                PowerSource::default(),
+                RadiationSource {
+                    strength: GENERATOR_RADIATION,
+                    active: false,
+                },
+            )) as Box<dyn DynBundle>,
+            Construct::Assembler => Box::new((common, Assembler, PowerConsumer::default())),
         }
     }
 }
@@ -82,31 +112,11 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
             }
         }
 
-        let construct_bundle = (
-            SpriteBundle {
-                texture: assets.constructs[construct].clone(),
-                transform: Transform::from_translation(transform.translation)
-                    .with_scale(Vec2::splat(CONSTRUCT_SCALE).extend(1.)),
-                ..default()
-            },
-            construct,
-            AudioEmitter { instances: vec![] },
-        );
+        let construct = construct.bundle(transform.translation.truncate(), &assets);
 
         remove_item_at(slot, &mut slots, inventory.single());
 
-        let mut entity = world.spawn(construct_bundle);
-        match construct {
-            Construct::Generator => entity.insert((
-                Generator::default(),
-                PowerSource::default(),
-                RadiationSource {
-                    strength: GENERATOR_RADIATION,
-                    active: false,
-                },
-            )),
-            Construct::Assembler => entity.insert((Assembler, PowerConsumer::default())),
-        };
+        construct.world_spawn(world);
     }
 }
 
