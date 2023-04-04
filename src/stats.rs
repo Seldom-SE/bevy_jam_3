@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use enum_map::{Enum, EnumMap};
 
+use crate::player::Player;
+
 #[derive(Enum, Clone, Copy, PartialEq, Eq)]
 pub enum Stat {
     Speed,
@@ -53,7 +55,7 @@ pub struct Radiation(f32);
 
 impl Default for Radiation {
     fn default() -> Self {
-        Radiation(1.0)
+        Radiation(0.33)
     }
 }
 
@@ -155,8 +157,82 @@ pub struct StatBundle {
     pub radiation: Radiation,
 }
 
+#[derive(Component)]
+struct HealthBar;
+
+#[derive(Component)]
+struct RadiationBar;
+
 pub fn stat_plugin(app: &mut App) {
-    app.add_system(stat_propegation);
+    app.add_startup_system(init_ui)
+        .add_system(stat_propegation)
+        .add_system(update_ui);
 
     app.register_type::<Health>().register_type::<Radiation>();
+}
+
+fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = asset_server.load("font/FiraSans-Bold.ttf");
+
+    // TODO Health/radiation bars
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                size: Size::new(Val::Percent(100.), Val::Auto),
+                justify_content: JustifyContent::End,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        flex_direction: FlexDirection::Column,
+                        ..default()
+                    },
+                    background_color: Color::rgba(0., 0., 0., 0.5).into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "Health: 100",
+                            TextStyle {
+                                font: font.clone(),
+                                font_size: 40.0,
+                                color: Color::RED,
+                            },
+                        ),
+                        HealthBar,
+                    ));
+
+                    parent.spawn((
+                        TextBundle::from_section(
+                            "Radiation: 33",
+                            TextStyle {
+                                font,
+                                font_size: 40.0,
+                                color: Color::GREEN,
+                            },
+                        ),
+                        RadiationBar,
+                    ));
+                });
+        });
+}
+
+fn update_ui(
+    mut healths: Query<&mut Text, (With<HealthBar>, Without<RadiationBar>)>,
+    mut radiations: Query<&mut Text, (With<RadiationBar>, Without<HealthBar>)>,
+    players: Query<(&Health, &Radiation), With<Player>>,
+) {
+    let Ok((health, radiation)) = players.get_single() else { return };
+
+    let mut health_text = healths.single_mut();
+    health_text.sections[0].value = format!("Health: {}", (health.0 * 100.).ceil());
+
+    let mut radiation_text = radiations.single_mut();
+    radiation_text.sections[0].value = format!("Radiation: {}", (radiation.0 * 100.).ceil());
 }
