@@ -147,7 +147,11 @@ impl StructureGen {
         samples
     }
 
-    pub fn iter_area(&self, min: Vec2<i32>, max: Vec2<i32>) -> impl Iterator<Item = StructureField> {
+    pub fn iter_area(
+        &self,
+        min: Vec2<i32>,
+        max: Vec2<i32>,
+    ) -> impl Iterator<Item = StructureField> {
         let freq = self.freq;
         let spread = self.spread;
         let spread_mul = Self::spread_mul(spread);
@@ -177,8 +181,7 @@ impl StructureGen {
         let y_field = self.y_field;
         let seed_field = self.seed_field;
         (0..len).map(move |xy| {
-            let index =
-                min_index + Vec2::new((xy % xlen as u64) as i32, (xy / xlen as u64) as i32);
+            let index = min_index + Vec2::new((xy % xlen as u64) as i32, (xy / xlen as u64) as i32);
             Self::index_to_sample_internal(
                 freq,
                 freq_offset,
@@ -313,14 +316,16 @@ impl ChunkData {
     fn item(&mut self, pos: Vec2<f32>, item: Item) {
         let aabr = self.aabr();
         if aabr.contains_point(pos.as_()) {
-            self.items.push((bevy::prelude::Vec2::from_array(pos.into_array()), item));
+            self.items
+                .push((bevy::prelude::Vec2::from_array(pos.into_array()), item));
         }
     }
 
     fn enemy(&mut self, pos: Vec2<f32>, enemy: Enemy) {
         let aabr = self.aabr();
         if aabr.contains_point(pos.as_()) {
-            self.enemies.push((bevy::prelude::Vec2::from_array(pos.into_array()), enemy));
+            self.enemies
+                .push((bevy::prelude::Vec2::from_array(pos.into_array()), enemy));
         }
     }
 
@@ -364,27 +369,26 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
 
     let lakes = lakes
         .iter_area(min - CHUNK_SIZE as i32 * 2, max + CHUNK_SIZE as i32 * 2)
-        .map(|structure| {
-            Lake {
-                bounds: RandomField(structure.seed).gen_bounds(structure.pos, 10..=24),
-                seed: structure.seed,
-            }
+        .map(|structure| Lake {
+            bounds: RandomField(structure.seed).gen_bounds(structure.pos, 10..=24),
+            seed: structure.seed,
         })
         .collect::<Vec<_>>();
 
-    for lake in lakes.iter().filter(|lake| lake.bounds.intersection(chunk_aabr).is_valid()) {
+    for lake in lakes
+        .iter()
+        .filter(|lake| lake.bounds.intersection(chunk_aabr).is_valid())
+    {
         let b = lake.bounds.as_::<f32>();
         let field = RandomField(lake.seed);
         for y in lake.bounds.min.y..=lake.bounds.max.y {
-            let t_y = (y as f32 - b.center().y) / b.half_size().h as f32;
+            let t_y = (y as f32 - b.center().y) / b.half_size().h;
             let t_x = (1.0 - t_y * t_y).sqrt();
-            let x = t_x * b.half_size().w as f32;
-            let offset0 =
-                field.gen_f32(Vec2::new(0, y)) * 2.0 - 1.0;
-            let offset1 =
-                field.gen_f32(Vec2::new(0, -1 - y)) * 2.0 - 1.0;
+            let x = t_x * b.half_size().w;
+            let offset0 = field.gen_f32(Vec2::new(0, y)) * 2.0 - 1.0;
+            let offset1 = field.gen_f32(Vec2::new(0, -1 - y)) * 2.0 - 1.0;
 
-            let start = Vec2::new((b.center() .x - x + offset0) as i32, y);
+            let start = Vec2::new((b.center().x - x + offset0) as i32, y);
             let end = Vec2::new((b.center().x + x + offset1) as i32, y);
 
             chunk.floor_line(start, end, FloorTile::Water);
@@ -394,18 +398,23 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
         while field.chance(Vec2::new(i, 0), ITEM_CHANCE) {
             i += 1;
 
-            let p = Vec2::new(1, -1).map(|i| field.gen_f32(Vec2::new((1 + i) * i, 0))) * (b.max - b.min) + b.min;
+            let p = Vec2::new(1, -1).map(|i| field.gen_f32(Vec2::new((1 + i) * i, 0)))
+                * (b.max - b.min)
+                + b.min;
             chunk.enemy(p, Enemy::Slime);
         }
     }
 
     let structures = StructureGen::new(seed.wrapping_add(STRUCTURES_SEED), 40, 20);
 
-    for structure in structures.iter_area(min - CHUNK_SIZE as i32 * 2, max + CHUNK_SIZE as i32 * 2) {
+    for structure in structures.iter_area(min - CHUNK_SIZE as i32 * 2, max + CHUNK_SIZE as i32 * 2)
+    {
         let bounds = RandomField(structure.seed).gen_bounds(structure.pos, 8..=15);
-        if !bounds.intersection(chunk_aabr).is_valid() || lakes.iter().any(|lake| {
-            lake.bounds.intersection(bounds).is_valid()
-        }) {
+        if !bounds.intersection(chunk_aabr).is_valid()
+            || lakes
+                .iter()
+                .any(|lake| lake.bounds.intersection(bounds).is_valid())
+        {
             continue;
         }
 
@@ -421,11 +430,11 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
         chunk.wall_line(bounds.max, max_min, WallTile::Wall);
 
         let door = ([
-                Vec2::new(bounds.min.x, bounds.center().y),
-                Vec2::new(bounds.max.x, bounds.center().y),
-                Vec2::new(bounds.center().x, bounds.min.y),
-                Vec2::new(bounds.center().x, bounds.max.y),
-            ])[field.gen_range(structure.pos, 0..=3) as usize];
+            Vec2::new(bounds.min.x, bounds.center().y),
+            Vec2::new(bounds.max.x, bounds.center().y),
+            Vec2::new(bounds.center().x, bounds.min.y),
+            Vec2::new(bounds.center().x, bounds.max.y),
+        ])[field.gen_range(structure.pos, 0..=3) as usize];
 
         chunk.set_wall(door, WallTile::None);
 
@@ -442,7 +451,10 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
                 Item::FuelTank,
             ])[field.gen_range(Vec2::new(0, i), 0..=4) as usize];
 
-            let p = Vec2::new(1, -1).map(|i| field.gen_f32(Vec2::new((1 + i) * i, 0))) * (b.max - b.min - 2.0) + b.min + 1.0;
+            let p = Vec2::new(1, -1).map(|i| field.gen_f32(Vec2::new((1 + i) * i, 0)))
+                * (b.max - b.min - 2.0)
+                + b.min
+                + 1.0;
             chunk.item(p, item);
         }
     }

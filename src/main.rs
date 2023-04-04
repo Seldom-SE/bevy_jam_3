@@ -1,4 +1,4 @@
-#![allow(clippy::type_complexity)]
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 #![feature(int_roundings)]
 mod asset;
 mod camera;
@@ -17,7 +17,7 @@ use bevy::{
     render::render_resource::{FilterMode, SamplerDescriptor},
     sprite::SpritePlugin,
 };
-use bevy_kira_audio::{AudioPlugin, prelude::SpacialAudio};
+use bevy_kira_audio::{prelude::SpacialAudio, AudioPlugin};
 use camera::camera_plugin;
 use construct::construct_plugin;
 use day_night::day_night_plugin;

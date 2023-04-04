@@ -5,14 +5,7 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::{
-    asset::GameAssets,
-    entities::{spawn_slime, TextureAtlases},
-    item::Item,
-    physics::Vel,
-    prelude::*,
-    SCREEN_SIZE,
-};
+use crate::{asset::GameAssets, entities::TextureAtlases, physics::Vel, prelude::*, SCREEN_SIZE};
 
 pub fn map_plugin(app: &mut App) {
     app.add_plugin(TilemapPlugin)

@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use bevy::ecs::system::SystemState;
-use bevy_kira_audio::{prelude::AudioEmitter, Audio, AudioControl, AudioInstance, AudioTween, AudioEasing};
+use bevy_kira_audio::{
+    prelude::AudioEmitter, Audio, AudioControl, AudioEasing, AudioInstance, AudioTween,
+};
 use enum_map::Enum;
 
 use crate::{
@@ -60,9 +62,8 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
             Query<&mut InventorySlot>,
             Query<&Inventory>,
             Res<GameAssets>,
-            Res<Audio>,
         )>::new(world);
-        let (players, constructs, mut slots, inventory, assets, audio) = system_state.get_mut(world);
+        let (players, constructs, mut slots, inventory, assets) = system_state.get_mut(world);
         let Ok(transform) = players.get_single() else { return };
 
         for &construct_transform in &constructs {
@@ -84,9 +85,7 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
                 ..default()
             },
             construct,
-            AudioEmitter {
-                instances: vec![],
-            }
+            AudioEmitter { instances: vec![] },
         );
 
         remove_item_at(slot, &mut slots, inventory.single());
@@ -184,7 +183,10 @@ fn set_power(
 }
 
 fn update_assemblers(
-    mut consumers: Query<(&PowerConsumer, &mut Handle<Image>, &mut AudioEmitter), Changed<PowerConsumer>>,
+    mut consumers: Query<
+        (&PowerConsumer, &mut Handle<Image>, &mut AudioEmitter),
+        Changed<PowerConsumer>,
+    >,
     assets: Res<GameAssets>,
     audio: Res<Audio>,
     mut audio_instances: ResMut<Assets<AudioInstance>>,
@@ -192,17 +194,22 @@ fn update_assemblers(
     for (consumer, mut image, mut audio_emitter) in &mut consumers {
         match consumer.source {
             Some(_) if *image != assets.assemblers[1] => {
-                audio_emitter.instances.push(audio.play(assets.assembler_sound.clone()).looped().handle());
+                audio_emitter
+                    .instances
+                    .push(audio.play(assets.assembler_sound.clone()).looped().handle());
                 *image = assets.assemblers[1].clone();
-            },
+            }
             None if *image != assets.assemblers[0] => {
                 for instance in audio_emitter.instances.drain(..) {
                     if let Some(instance) = audio_instances.get_mut(&instance) {
-                        instance.stop(AudioTween::new(Duration::from_secs_f32(1.0), AudioEasing::OutPowi(2)));
+                        instance.stop(AudioTween::new(
+                            Duration::from_secs_f32(1.0),
+                            AudioEasing::OutPowi(2),
+                        ));
                     }
                 }
                 *image = assets.assemblers[0].clone();
-            },
+            }
             _ => {}
         };
     }
