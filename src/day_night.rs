@@ -23,7 +23,7 @@ fn sky_light(time: f32) -> Skylight2d {
 fn init(mut commands: Commands) {
     commands.spawn(Skylight2d {
         color: Color::WHITE,
-        strength: 2.0,
+        strength: 1.0,
     });
 }
 

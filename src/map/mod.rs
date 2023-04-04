@@ -7,6 +7,8 @@ use bevy::{
 
 use crate::{asset::GameAssets, entities::TextureAtlases, physics::Vel, prelude::*, SCREEN_SIZE};
 
+use self::gen::RandomField;
+
 pub fn map_plugin(app: &mut App) {
     app.add_plugin(TilemapPlugin)
         .init_resource::<ChunkManager>()
@@ -24,7 +26,7 @@ pub fn as_object_vec3(vec: Vec2) -> Vec3 {
 }
 
 const CHUNK_SIZE: u32 = 32;
-const TILE_SIZE: f32 = 16.;
+const TILE_SIZE: f32 = 32.;
 const Z_BASE_OBJECTS: f32 = 200.; // Ground object sprites.
 const FLOOR_LAYER: f32 = 0.;
 const WALL_LAYER: f32 = 1.;
@@ -212,6 +214,75 @@ impl ChunkManager {
     }
 }
 
+const TRANS_TILE_LUT: [u32; 255] = {
+    let mut table = [0; 255];
+    let mut i = 0;
+
+    loop {
+        if i >= 255 {
+            break;
+        }
+
+        // Don't ask.
+        table[i] = match i as u8 + 1 {
+            bits if bits & 0b01111101 == 0b00000001 => 0,
+            bits if bits == 0b00000010 => 1,
+            bits if bits & 0b11110101 == 0b00000100 => 2,
+            bits if bits & 0b01110101 == 0b00000101 => 3,
+            bits if bits == 0b00001000 => 4,
+            bits if bits & 0b01111101 == 0b00001001 => 5,
+            bits if bits == 0b00001010 => 6,
+            bits if bits & 0b11010111 == 0b00010000 => 7,
+            bits if bits & 0b01010101 == 0b00010001 => 8,
+            bits if bits & 0b11010111 == 0b00010010 => 9,
+            bits if bits & 0b11010101 == 0b00010100 => 10,
+            bits if bits & 0b01010101 == 0b00010101 => 11,
+            bits if bits == 0b00100000 => 12,
+            bits if bits & 0b01111101 == 0b00100001 => 13,
+            bits if bits == 0b00100010 => 14,
+            bits if bits & 0b11110101 == 0b00100100 => 15,
+            bits if bits & 0b01110101 == 0b00100101 => 16,
+            bits if bits == 0b00101000 => 17,
+            bits if bits & 0b01111101 == 0b00101001 => 18,
+            bits if bits == 0b00101010 => 19,
+            bits if bits & 0b01011111 == 0b01000000 => 20,
+            bits if bits & 0b01011101 == 0b01000001 => 21,
+            bits if bits & 0b01011111 == 0b01000010 => 22,
+            bits if bits & 0b01010101 == 0b01000100 => 23,
+            bits if bits & 0b01010101 == 0b01000101 => 24,
+            bits if bits & 0b01011111 == 0b01001000 => 25,
+            bits if bits & 0b01011101 == 0b01001001 => 26,
+            bits if bits & 0b01011111 == 0b01001010 => 27,
+            bits if bits & 0b01010111 == 0b01010000 => 28,
+            bits if bits & 0b01010101 == 0b01010001 => 29,
+            bits if bits & 0b01010111 == 0b01010010 => 30,
+            bits if bits & 0b01010101 == 0b01010100 => 31,
+            bits if bits & 0b01010101 == 0b01010101 => 32,
+            bits if bits == 0b10000000 => 33,
+            bits if bits == 0b10000010 => 34,
+            bits if bits & 0b11110101 == 0b10000100 => 35,
+            bits if bits == 0b10001000 => 36,
+            bits if bits == 0b10001010 => 37,
+            bits if bits & 0b11010111 == 0b10010000 => 38,
+            bits if bits & 0b11010111 == 0b10010010 => 39,
+            bits if bits & 0b11010101 == 0b10010100 => 40,
+            bits if bits == 0b10100000 => 41,
+            bits if bits == 0b10100010 => 42,
+            bits if bits & 0b11110101 == 0b10100100 => 43,
+            bits if bits == 0b10101000 => 44,
+            bits if bits == 0b10101010 => 45,
+            bits if bits == 0b00000000 => 0,
+            _ => 0,
+        };
+        i += 1;
+    }
+    table
+};
+
+fn get_trans_tile_idx(sides: u8) -> Option<u32> {
+    sides.checked_sub(1).map(|i| TRANS_TILE_LUT[i as usize])
+}
+
 fn spawn_chunk(
     commands: &mut Commands,
     assets: &GameAssets,
@@ -236,63 +307,68 @@ fn spawn_chunk(
     transform.scale = Vec2::splat(SCALE).extend(1.);
     let seed = SEED;
     let chunk_data = gen::gen_chunk(chunk_pos, seed);
-    let mut rng = SmallRng::seed_from_u64(
-        (((chunk_pos.x as u64) << 32) | chunk_pos.y as u64).rotate_right(11)
-            ^ ((seed as u64) << 15),
-    );
+    let bounds = chunk_data.chunk_aabr();
 
-    for (pos, item) in chunk_data.items {
-        commands.spawn((
-            SpriteBundle {
-                texture: assets.items[item].clone(),
-                transform: Transform::from_translation(as_object_vec3(pos * TILE_SIZE)),
-                ..default()
-            },
-            item,
-        ));
-    }
-
-    for (pos, construct) in chunk_data.constructs {
-        construct.bundle(pos * TILE_SIZE, assets).spawn(commands);
-    }
-
-    for (pos, enemy) in chunk_data.enemies {
-        enemy.spawn(pos * TILE_SIZE, commands, atlases);
-    }
+    let field = RandomField(seed);
 
     let floor = {
         let floor_image: Handle<Image> = asset_server.load("art/atlas_floor.png");
         let mut floor_storage = TileStorage::empty(map_size);
         let floor_map = commands.spawn(ChunkMarker).id();
 
-        for (i, floor) in chunk_data.floor.into_iter().enumerate() {
-            let position = TilePos {
-                x: i as u32 % CHUNK_SIZE,
-                y: i as u32 / CHUNK_SIZE,
-            };
-            let tile = commands
-                .spawn(TileBundle {
-                    position,
-                    texture_index: TileTextureIndex(match floor {
-                        gen::FloorTile::Ground => 0,
-                        gen::FloorTile::Water => match (position.x % 2, position.y % 2) {
-                            (0, 0) => 8,
-                            (1, 0) => 9,
-                            (0, 1) => 12,
-                            (1, 1) => 13,
-                            _ => unreachable!(),
-                        },
-                        gen::FloorTile::Concrete => [2, 3, 6, 7, 10, 11, 14, 15]
-                            .choose(&mut rng)
-                            .copied()
-                            .unwrap(),
-                        gen::FloorTile::Floor => 3,
-                    }),
-                    tilemap_id: TilemapId(floor_map),
-                    ..default()
-                })
-                .id();
-            floor_storage.set(&position, tile);
+        for y in bounds.min.y..=bounds.max.y {
+            for x in bounds.min.x..=bounds.max.x {
+                let tile_pos = TilePos {
+                    x: x.rem_euclid(CHUNK_SIZE as i32) as u32,
+                    y: y.rem_euclid(CHUNK_SIZE as i32) as u32,
+                };
+
+                let tile = chunk_data.get_floor_tile(x, y);
+
+                const PER_ROW: u32 = 32;
+                let is_water = |n_x, n_y| {
+                    matches!(
+                        chunk_data.get_floor_tile(x + n_x, y + n_y),
+                        gen::FloorTile::Water
+                    ) as u8
+                };
+
+                let texture_index = match tile {
+                    gen::FloorTile::Ground => {
+                        let sides = is_water(1, 0)
+                            | is_water(1, 1) << 1
+                            | is_water(0, 1) << 2
+                            | is_water(-1, 1) << 3
+                            | is_water(-1, 0) << 4
+                            | is_water(-1, -1) << 5
+                            | is_water(0, -1) << 6
+                            | is_water(1, -1) << 7;
+                        if let Some(idx) = get_trans_tile_idx(sides) {
+                            PER_ROW + idx
+                        } else {
+                            field.gen_range(vek::Vec2::new(x, y), 0..=2)
+                        }
+                    }
+                    gen::FloorTile::Water => PER_ROW * 3,
+                    gen::FloorTile::Concrete => {
+                        PER_ROW * 4 + match field.gen_range(vek::Vec2::new(x, y), 0..=10) {
+                            1 => 1,
+                            2 => 2,
+                            _ => 0,
+                        }
+                    }
+                };
+
+                let tile = commands
+                    .spawn(TileBundle {
+                        position: tile_pos,
+                        texture_index: TileTextureIndex(texture_index),
+                        tilemap_id: TilemapId(floor_map),
+                        ..default()
+                    })
+                    .id();
+                floor_storage.set(&tile_pos, tile);
+            }
         }
 
         let mut floor_transform = transform;
@@ -312,29 +388,34 @@ fn spawn_chunk(
     };
 
     let walls = {
-        let wall_image: Handle<Image> = asset_server.load("art/atlas_wall.png");
+        let wall_image: Handle<Image> = asset_server.load("art/wall.png");
         let mut wall_storage = TileStorage::empty(map_size);
         let wall_map = commands.spawn(ChunkMarker).id();
 
-        for (i, wall) in chunk_data.walls.into_iter().enumerate() {
-            let tile_texture_index = match wall {
-                gen::WallTile::None => continue,
-                gen::WallTile::Wall => 20,
-            };
-            let position = TilePos {
-                x: i as u32 % CHUNK_SIZE,
-                y: i as u32 / CHUNK_SIZE,
-            };
+        for y in bounds.min.y..=bounds.max.y {
+            for x in bounds.min.x..=bounds.max.x {
+                let tile_pos = TilePos {
+                    x: x.rem_euclid(CHUNK_SIZE as i32) as u32,
+                    y: y.rem_euclid(CHUNK_SIZE as i32) as u32,
+                };
 
-            let tile = commands
-                .spawn(TileBundle {
-                    position,
-                    texture_index: TileTextureIndex(tile_texture_index),
-                    tilemap_id: TilemapId(wall_map),
-                    ..default()
-                })
-                .id();
-            wall_storage.set(&position, tile);
+                let tile = chunk_data.get_wall_tile(x, y);
+
+                let texture_index = match tile {
+                    gen::WallTile::None => continue,
+                    gen::WallTile::Wall => 0,
+                };
+
+                let tile = commands
+                    .spawn(TileBundle {
+                        position: tile_pos,
+                        texture_index: TileTextureIndex(texture_index),
+                        tilemap_id: TilemapId(wall_map),
+                        ..default()
+                    })
+                    .id();
+                wall_storage.set(&tile_pos, tile);
+            }
         }
 
         let mut wall_transform = transform;
@@ -352,6 +433,25 @@ fn spawn_chunk(
             })
             .id()
     };
+
+    for (pos, item) in chunk_data.items {
+        commands.spawn((
+            SpriteBundle {
+                texture: assets.items[item].clone(),
+                transform: Transform::from_translation(as_object_vec3(pos * TILE_SIZE)),
+                ..default()
+            },
+            item,
+        ));
+    }
+
+    for (pos, construct) in chunk_data.constructs {
+        construct.bundle(pos * TILE_SIZE, assets).spawn(commands);
+    }
+
+    for (pos, enemy) in chunk_data.enemies {
+        enemy.spawn(pos * TILE_SIZE, commands, atlases);
+    }
 
     Chunk { floor, walls }
 }

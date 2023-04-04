@@ -11,7 +11,7 @@ fn init(mut commands: Commands) {
     commands.spawn((
         Camera2dBundle {
             projection: OrthographicProjection {
-                scale: 0.4,
+                scale: 0.7,
                 ..default()
             },
             ..default()

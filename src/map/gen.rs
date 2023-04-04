@@ -36,16 +36,17 @@ impl RandomField {
     }
 
     pub fn gen(&self, pos: Vec2<i32>) -> u32 {
-        let pos = pos.as_::<u32>();
+        let pos = pos.map(|e| u32::from_le_bytes(e.to_le_bytes()));
 
         let mut a = self.0;
         a = a.wrapping_sub(a << 3);
         a ^= pos.x;
         a ^= a.rotate_right(5);
-        a = a.wrapping_mul(0xad8213d);
-        a ^= a >> 13;
+        a = a.wrapping_mul(0xad8213d1);
+        a ^= a.rotate_right(13);
         a ^= pos.y;
         a = (a ^ 213) ^ a.rotate_left(15);
+        a = a.wrapping_mul(0x234af231);
         a = a.wrapping_add(a >> 16);
         a ^= a.rotate_right(5);
         a
@@ -148,11 +149,7 @@ impl StructureGen {
         samples
     }
 
-    pub fn iter_area(
-        &self,
-        min: Vec2<i32>,
-        max: Vec2<i32>,
-    ) -> impl Iterator<Item = StructureField> {
+    pub fn iter_area(&self, bounds: Aabr<i32>) -> impl Iterator<Item = StructureField> {
         let freq = self.freq;
         let spread = self.spread;
         let spread_mul = Self::spread_mul(spread);
@@ -163,8 +160,8 @@ impl StructureGen {
         let freq_offset = Self::freq_offset(freq);
         assert!(freq_offset * 2 == freq);
 
-        let min_index = Self::sample_to_index_internal(freq, min) - 1;
-        let max_index = Self::sample_to_index_internal(freq, max) + 1;
+        let min_index = Self::sample_to_index_internal(freq, bounds.min) - 1;
+        let max_index = Self::sample_to_index_internal(freq, bounds.max) + 1;
         assert!(min_index.x < max_index.x);
         // NOTE: xlen > 0
         let xlen = (max_index.x - min_index.x) as u32;
@@ -203,7 +200,6 @@ pub enum FloorTile {
     Ground,
     Water,
     Concrete,
-    Floor,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -212,6 +208,8 @@ pub enum WallTile {
     None,
     Wall,
 }
+
+const GEN_SIZE: u32 = CHUNK_SIZE + 2;
 
 pub struct ChunkData {
     cpos: Vec2<i32>,
@@ -231,14 +229,13 @@ impl ChunkData {
     }
     #[inline]
     fn index_rpos(p: Vec2<i32>) -> usize {
-        p.y as usize * CHUNK_SIZE as usize + p.x as usize
+        p.y as usize * GEN_SIZE as usize + p.x as usize
     }
     #[inline]
     fn index_wpos(&self, p: Vec2<i32>) -> Option<usize> {
-        let min = self.cpos * CHUNK_SIZE as i32;
-        let max = min + CHUNK_SIZE as i32;
-        if (min.x..max.x).contains(&p.x) && (min.y..max.y).contains(&p.y) {
-            Some(Self::index_rpos(p - min))
+        let aabr = self.gen_aabr();
+        if aabr.contains_point(p) {
+            Some(Self::index_rpos(p - aabr.min))
         } else {
             None
         }
@@ -252,9 +249,9 @@ impl ChunkData {
 
     /// Inclusive
     fn blit_floor(&mut self, min: Vec2<i32>, max: Vec2<i32>, t: FloorTile) {
-        let chunk_min = self.cpos * CHUNK_SIZE as i32;
-        let min = (min - chunk_min).map(|e| e.max(0));
-        let max = (max - chunk_min).map(|e| e.min(CHUNK_SIZE as i32 - 1));
+        let aabr = self.gen_aabr();
+        let min = (min - aabr.min).map(|e| e.max(0));
+        let max = (max - aabr.min).map2(Vec2::from(aabr.size()), |a, b| a.min(b));
 
         if min.x <= max.x && min.y <= max.y {
             for y in min.y..=max.y {
@@ -266,12 +263,12 @@ impl ChunkData {
     }
 
     fn draw_line(&self, start: Vec2<i32>, end: Vec2<i32>, mut set: impl FnMut(usize)) {
-        let chunk_min = self.cpos * CHUNK_SIZE as i32;
+        let aabr = self.gen_aabr();
         if start.x == end.x {
-            let x = start.x - chunk_min.x;
-            if (0..CHUNK_SIZE as i32).contains(&x) {
-                let min = (start.y.min(end.y) - chunk_min.y).max(0);
-                let max = (start.y.max(end.y) - chunk_min.y).min(CHUNK_SIZE as i32 - 1);
+            if (aabr.min.x..=aabr.max.x).contains(&start.x) {
+                let x = start.x - aabr.min.x;
+                let min = (start.y.min(end.y) - aabr.min.y).max(0);
+                let max = (start.y.max(end.y) - aabr.min.y).min(aabr.size().h);
                 if min <= max {
                     for y in min..=max {
                         set(Self::index_rpos(Vec2::new(x, y)));
@@ -279,10 +276,10 @@ impl ChunkData {
                 }
             }
         } else if start.y == end.y {
-            let y = start.y - chunk_min.y;
-            if (0..CHUNK_SIZE as i32).contains(&y) {
-                let min = (start.x.min(end.x) - chunk_min.x).max(0);
-                let max = (start.x.max(end.x) - chunk_min.x).min(CHUNK_SIZE as i32 - 1);
+            if (aabr.min.y..=aabr.max.y).contains(&start.y) {
+                let y = start.y - aabr.min.y;
+                let min = (start.x.min(end.x) - aabr.min.x).max(0);
+                let max = (start.x.max(end.x) - aabr.min.x).min(aabr.size().w);
                 if min <= max {
                     for x in min..=max {
                         set(Self::index_rpos(Vec2::new(x, y)));
@@ -294,14 +291,14 @@ impl ChunkData {
         }
     }
 
-    // Axis aligned line, Inclusive
+    /// Axis aligned line, Inclusive
     fn floor_line(&mut self, start: Vec2<i32>, end: Vec2<i32>, t: FloorTile) {
         let mut floor = std::mem::take(&mut self.floor);
         self.draw_line(start, end, |i| floor[i] = t);
         self.floor = floor;
     }
 
-    // Axis aligned line, Inclusive
+    /// Axis aligned line, Inclusive
     fn wall_line(&mut self, start: Vec2<i32>, end: Vec2<i32>, t: WallTile) {
         let mut walls = std::mem::take(&mut self.walls);
         self.draw_line(start, end, |i| walls[i] = t);
@@ -316,7 +313,7 @@ impl ChunkData {
     }
 
     fn item(&mut self, pos: Vec2<f32>, item: Item) {
-        let aabr = self.aabr();
+        let aabr = self.chunk_aabr();
         if aabr.contains_point(pos.as_()) {
             self.items
                 .push((bevy::prelude::Vec2::from_array(pos.into_array()), item));
@@ -324,7 +321,7 @@ impl ChunkData {
     }
 
     fn construct(&mut self, pos: Vec2<f32>, construct: Construct) {
-        let aabr = self.aabr();
+        let aabr = self.chunk_aabr();
         if aabr.contains_point(pos.as_()) {
             self.constructs
                 .push((bevy::prelude::Vec2::from_array(pos.into_array()), construct));
@@ -332,19 +329,41 @@ impl ChunkData {
     }
 
     fn enemy(&mut self, pos: Vec2<f32>, enemy: Enemy) {
-        let aabr = self.aabr();
+        let aabr = self.chunk_aabr();
         if aabr.contains_point(pos.as_()) {
             self.enemies
                 .push((bevy::prelude::Vec2::from_array(pos.into_array()), enemy));
         }
     }
 
-    fn aabr(&self) -> Aabr<i32> {
+    /// The area of tiles we generate for this chunk.
+    fn gen_aabr(&self) -> Aabr<i32> {
+        let min = self.cpos * CHUNK_SIZE as i32 - 1;
+        Aabr {
+            min,
+            max: min + CHUNK_SIZE as i32 + 1,
+        }
+    }
+
+    /// The area of the chunk itself.
+    pub fn chunk_aabr(&self) -> Aabr<i32> {
         let min = self.cpos * CHUNK_SIZE as i32;
         Aabr {
             min,
             max: min + CHUNK_SIZE as i32 - 1,
         }
+    }
+
+    pub fn get_floor_tile(&self, x: i32, y: i32) -> FloorTile {
+        self.index_wpos(Vec2::new(x, y))
+            .map(|i| self.floor[i])
+            .expect("Out of chunk gen range.")
+    }
+
+    pub fn get_wall_tile(&self, x: i32, y: i32) -> WallTile {
+        self.index_wpos(Vec2::new(x, y))
+            .map(|i| self.walls[i])
+            .expect("Out of chunk gen range.")
     }
 }
 
@@ -352,8 +371,8 @@ impl Default for ChunkData {
     fn default() -> Self {
         Self {
             cpos: Vec2::zero(),
-            floor: vec![FloorTile::default(); (CHUNK_SIZE * CHUNK_SIZE) as usize],
-            walls: vec![WallTile::default(); (CHUNK_SIZE * CHUNK_SIZE) as usize],
+            floor: vec![FloorTile::default(); (GEN_SIZE * GEN_SIZE) as usize],
+            walls: vec![WallTile::default(); (GEN_SIZE * GEN_SIZE) as usize],
             items: Default::default(),
             constructs: Default::default(),
             enemies: Default::default(),
@@ -368,9 +387,7 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
     let cpos = Vec2::from(cpos.to_array());
 
     let mut chunk = ChunkData::new(cpos);
-    let chunk_aabr = chunk.aabr();
-    let min = cpos * CHUNK_SIZE as i32;
-    let max = min + CHUNK_SIZE as i32;
+    let chunk_aabr = chunk.gen_aabr();
     let lakes = StructureGen::new(seed.wrapping_add(LAKES_SEED), 50, 24);
 
     struct Lake {
@@ -378,8 +395,13 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
         seed: u32,
     }
 
+    let structure_query_area = Aabr {
+        min: chunk_aabr.min - CHUNK_SIZE as i32,
+        max: chunk_aabr.max + CHUNK_SIZE as i32,
+    };
+
     let lakes = lakes
-        .iter_area(min - CHUNK_SIZE as i32 * 2, max + CHUNK_SIZE as i32 * 2)
+        .iter_area(structure_query_area)
         .map(|structure| Lake {
             bounds: RandomField(structure.seed).gen_bounds(structure.pos, 10..=24),
             seed: structure.seed,
@@ -397,7 +419,7 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
             let t_x = (1.0 - t_y * t_y).sqrt();
             let x = t_x * b.half_size().w;
             let offset0 = field.gen_f32(Vec2::new(0, y)) * 2.0 - 1.0;
-            let offset1 = field.gen_f32(Vec2::new(0, -1 - y)) * 2.0 - 1.0;
+            let offset1 = field.gen_f32(Vec2::new(0, y.rotate_left(13))) * 2.0 - 1.0;
 
             let start = Vec2::new((b.center().x - x + offset0) as i32, y);
             let end = Vec2::new((b.center().x + x + offset1) as i32, y);
@@ -418,8 +440,7 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
 
     let structures = StructureGen::new(seed.wrapping_add(STRUCTURES_SEED), 40, 20);
 
-    for structure in structures.iter_area(min - CHUNK_SIZE as i32 * 2, max + CHUNK_SIZE as i32 * 2)
-    {
+    for structure in structures.iter_area(structure_query_area) {
         let bounds = RandomField(structure.seed).gen_bounds(structure.pos, 8..=15);
         if !bounds.intersection(chunk_aabr).is_valid()
             || lakes
