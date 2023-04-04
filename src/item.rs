@@ -3,7 +3,7 @@ use rand::distributions::Standard;
 
 use crate::{
     asset::GameAssets,
-    construct::{fuel_generator, spawn_construct},
+    construct::{fuel_generator, spawn_construct, Assembler, PowerConsumer},
     player::{Action, Player},
     prelude::*,
 };
@@ -79,9 +79,9 @@ fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
             Some(Item::Assembler),
             Some(Item::Generator),
             Some(Item::FuelTank),
-            None,
-            None,
-            None,
+            Some(Item::Circuit),
+            Some(Item::Metal),
+            Some(Item::Metal),
             None,
             None,
             None,
@@ -286,19 +286,37 @@ fn init_recipe_menu(mut commands: Commands) {
     ));
 }
 
+const ASSEMBLER_RANGE: f32 = 32.;
+
 fn update_recipe_menu(
     mut commands: Commands,
     recipe_menu: Query<Entity, With<RecipeMenu>>,
-    slots: Query<Ref<InventorySlot>>,
+    slots: Query<&InventorySlot>,
+    players: Query<&Transform, With<Player>>,
+    assemblers: Query<(&PowerConsumer, &Transform), With<Assembler>>,
     recipes: Res<Recipes>,
     assets: Res<GameAssets>,
 ) {
-    if !slots.iter().any(|slot| slot.is_changed()) {
-        return;
-    }
+    let Ok(player_transform) = players.get_single() else { return };
 
     let recipe_menu = recipe_menu.single();
     commands.entity(recipe_menu).despawn_descendants();
+
+    'outer: {
+        for (power, assembler_transform) in &assemblers {
+            if power.source.is_some()
+                && player_transform
+                    .translation
+                    .truncate()
+                    .distance_squared(assembler_transform.translation.truncate())
+                    < ASSEMBLER_RANGE * ASSEMBLER_RANGE
+            {
+                break 'outer;
+            }
+        }
+
+        return;
+    }
 
     let recipes = recipes
         .iter()
@@ -307,7 +325,7 @@ fn update_recipe_menu(
                 for (ingredient, count) in recipe {
                     if slots
                         .iter()
-                        .filter(|slot| ***slot == Some(*ingredient))
+                        .filter(|&slot| **slot == Some(*ingredient))
                         .count()
                         < *count as usize
                     {

@@ -44,9 +44,12 @@ struct Generator {
     fuel: f32,
 }
 
+#[derive(Component)]
+pub struct Assembler;
+
 #[derive(Component, Default)]
-struct PowerConsumer {
-    source: Option<Entity>,
+pub struct PowerConsumer {
+    pub source: Option<Entity>,
 }
 
 #[derive(Component, Default, Deref, DerefMut)]
@@ -102,7 +105,7 @@ pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World)
                     active: false,
                 },
             )),
-            Construct::Assembler => entity.insert(PowerConsumer::default()),
+            Construct::Assembler => entity.insert((Assembler, PowerConsumer::default())),
         };
     }
 }
