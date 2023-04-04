@@ -49,7 +49,7 @@ struct PowerConsumer {
 }
 
 #[derive(Component, Default, Deref, DerefMut)]
-struct PowerSource(bool);
+pub struct PowerSource(bool);
 
 const CONSTRUCT_SPACING: f32 = 32.;
 const CONSTRUCT_SCALE: f32 = 2.;

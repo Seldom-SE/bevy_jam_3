@@ -1,9 +1,10 @@
 use crate::{
     camera::PlayerCamera,
+    construct::PowerSource,
     map::as_object_vec3,
     physics::Vel,
     prelude::*,
-    stats::{Stat, StatBundle, Stats},
+    stats::{Radiation, Stat, StatBundle, Stats},
 };
 use bevy_kira_audio::prelude::AudioReceiver;
 use enum_map::enum_map;
@@ -13,7 +14,8 @@ pub fn player_plugin(app: &mut App) {
         .init_resource::<CursorPos>()
         .add_startup_system(init)
         .add_system(player_move)
-        .add_system(update_cursor_pos);
+        .add_system(update_cursor_pos)
+        .add_system(update_player_power);
 }
 
 #[derive(Actionlike, Clone)]
@@ -69,6 +71,7 @@ fn init(
             }),
             ..default()
         },
+        PowerSource::default(),
         Player,
         Vel::default(),
         PointLight2d {
@@ -107,7 +110,10 @@ fn player_move(
     let dir = (target - *camera_translation).truncate();
     let l = dir.length();
     const CAM_SPEED: f32 = 8.0;
-    let m = if l == 0.0 { Vec2::ZERO } else { dir / l } * (l * time.delta_seconds() * CAM_SPEED).max(time.delta_seconds() * CAM_SPEED).min(l);
+    let m = if l == 0.0 { Vec2::ZERO } else { dir / l }
+        * (l * time.delta_seconds() * CAM_SPEED)
+            .max(time.delta_seconds() * CAM_SPEED)
+            .min(l);
     *camera_translation += m.extend(0.0);
 }
 
@@ -128,5 +134,13 @@ fn update_cursor_pos(
         .map(|ray| ray.origin.truncate())
     {
         **cursor_pos = world_position;
+    }
+}
+
+const RADIATION_POWER_THRESHOLD: f32 = 0.3;
+
+fn update_player_power(mut players: Query<(&mut PowerSource, &Radiation), With<Player>>) {
+    for (mut power_source, radiation) in players.iter_mut() {
+        **power_source = **radiation > RADIATION_POWER_THRESHOLD;
     }
 }

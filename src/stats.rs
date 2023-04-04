@@ -39,7 +39,7 @@ impl Stats {
     }
 }
 
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Deref, DerefMut, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Health(f32);
 
@@ -49,13 +49,13 @@ impl Default for Health {
     }
 }
 
-#[derive(Component, Reflect, FromReflect)]
+#[derive(Component, Deref, DerefMut, Reflect, FromReflect)]
 #[reflect(Component)]
 pub struct Radiation(f32);
 
 impl Default for Radiation {
     fn default() -> Self {
-        Radiation(0.33)
+        Radiation(0.5)
     }
 }
 
@@ -96,7 +96,7 @@ fn stat_propegation(
                 stats.calc_radiation_damage((radiation.0 - 0.8) * time.delta_seconds()),
             );
         } else if radiation.0 > 0.0 {
-            radiation.0 -= time.delta_seconds() * 0.1;
+            radiation.0 -= time.delta_seconds() * 0.005;
         }
         radiation.0 = radiation.0.clamp(0.0, 1.0);
     }
