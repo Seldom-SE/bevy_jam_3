@@ -62,6 +62,7 @@ impl Default for Radiation {
 #[derive(Component)]
 pub struct RadiationSource {
     pub strength: f32,
+    pub radius: f32,
     pub active: bool,
 }
 
@@ -246,8 +247,6 @@ fn update_ui(
     radiation_text.sections[0].value = format!("Radiation: {}", (radiation.0 * 100.).ceil());
 }
 
-const RADIATION_RANGE: f32 = 64.;
-
 fn absorb_radiation(
     mut consumers: Query<(&mut Radiation, &Stats, &Transform)>,
     sources: Query<(&RadiationSource, &Transform)>,
@@ -259,7 +258,7 @@ fn absorb_radiation(
                 && source_transform
                     .translation
                     .distance_squared(consumer_transform.translation)
-                    < RADIATION_RANGE * RADIATION_RANGE
+                    < source.radius.powi(2)
             {
                 **radiation +=
                     source.strength / stats.get(Stat::RadiationResistence) * time.delta_seconds();

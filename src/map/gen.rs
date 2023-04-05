@@ -1,6 +1,6 @@
 use std::ops::RangeInclusive;
 
-use crate::{construct::Construct, entities::Enemy, item::Item};
+use crate::{construct::Construct, entities::Enemy, item::Item, map::TILE_SIZE};
 
 use super::CHUNK_SIZE;
 
@@ -218,6 +218,7 @@ pub struct ChunkData {
     pub items: Vec<(bevy::prelude::Vec2, Item)>,
     pub constructs: Vec<(bevy::prelude::Vec2, Construct)>,
     pub enemies: Vec<(bevy::prelude::Vec2, Enemy)>,
+    pub lakes: Vec<(bevy::prelude::Vec2, f32)>,
 }
 
 impl ChunkData {
@@ -336,6 +337,11 @@ impl ChunkData {
         }
     }
 
+    fn lake(&mut self, center: Vec2<f32>, radius: f32) {
+        self.lakes
+            .push((bevy::prelude::Vec2::from_array(center.into_array()), radius));
+    }
+
     /// The area of tiles we generate for this chunk.
     fn gen_aabr(&self) -> Aabr<i32> {
         let min = self.cpos * CHUNK_SIZE as i32 - 1;
@@ -376,6 +382,7 @@ impl Default for ChunkData {
             items: Default::default(),
             constructs: Default::default(),
             enemies: Default::default(),
+            lakes: Default::default(),
         }
     }
 }
@@ -436,6 +443,11 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
                 + b.min;
             chunk.enemy(p, Enemy::Slime);
         }
+
+        chunk.lake(
+            lake.bounds.center().as_(),
+            lake.bounds.half_size().as_::<f32>().average() + 6.,
+        );
     }
 
     let structures = StructureGen::new(seed.wrapping_add(STRUCTURES_SEED), 40, 20);

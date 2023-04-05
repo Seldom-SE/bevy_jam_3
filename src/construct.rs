@@ -41,6 +41,10 @@ impl TryFrom<Item> for Construct {
     }
 }
 
+const CONSTRUCT_SCALE: f32 = 2.;
+const GENERATOR_RADIATION: f32 = 0.05;
+const GENERATOR_RADIATION_RANGE: f32 = 64.;
+
 impl Construct {
     pub fn bundle(self, pos: Vec2, assets: &GameAssets) -> Box<dyn DynBundle> {
         let common = (
@@ -61,6 +65,7 @@ impl Construct {
                 PowerSource::default(),
                 RadiationSource {
                     strength: GENERATOR_RADIATION,
+                    radius: GENERATOR_RADIATION_RANGE,
                     active: false,
                 },
             )) as Box<dyn DynBundle>,
@@ -86,8 +91,6 @@ pub struct PowerConsumer {
 pub struct PowerSource(bool);
 
 const CONSTRUCT_SPACING: f32 = 32.;
-const CONSTRUCT_SCALE: f32 = 2.;
-const GENERATOR_RADIATION: f32 = 0.05;
 
 pub fn spawn_construct(slot: usize, construct: Construct) -> impl Fn(&mut World) {
     move |world: &mut World| {

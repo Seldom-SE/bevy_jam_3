@@ -5,7 +5,10 @@ use bevy::{
     utils::HashMap,
 };
 
-use crate::{asset::GameAssets, entities::TextureAtlases, physics::Vel, prelude::*, SCREEN_SIZE};
+use crate::{
+    asset::GameAssets, entities::TextureAtlases, physics::Vel, prelude::*, stats::RadiationSource,
+    SCREEN_SIZE,
+};
 
 use self::gen::RandomField;
 
@@ -283,6 +286,8 @@ fn get_trans_tile_idx(sides: u8) -> Option<u32> {
     sides.checked_sub(1).map(|i| TRANS_TILE_LUT[i as usize])
 }
 
+const LAKE_RADIATION: f32 = 0.05;
+
 fn spawn_chunk(
     commands: &mut Commands,
     assets: &GameAssets,
@@ -351,11 +356,12 @@ fn spawn_chunk(
                     }
                     gen::FloorTile::Water => PER_ROW * 3,
                     gen::FloorTile::Concrete => {
-                        PER_ROW * 4 + match field.gen_range(vek::Vec2::new(x, y), 0..=10) {
-                            1 => 1,
-                            2 => 2,
-                            _ => 0,
-                        }
+                        PER_ROW * 4
+                            + match field.gen_range(vek::Vec2::new(x, y), 0..=10) {
+                                1 => 1,
+                                2 => 2,
+                                _ => 0,
+                            }
                     }
                 };
 
@@ -451,6 +457,17 @@ fn spawn_chunk(
 
     for (pos, enemy) in chunk_data.enemies {
         enemy.spawn(pos * TILE_SIZE, commands, atlases);
+    }
+
+    for (pos, radius) in chunk_data.lakes {
+        commands.spawn((
+            RadiationSource {
+                strength: LAKE_RADIATION,
+                radius: radius * TILE_SIZE,
+                active: true,
+            },
+            Transform::from_translation(as_object_vec3(pos * TILE_SIZE)),
+        ));
     }
 
     Chunk { floor, walls }
