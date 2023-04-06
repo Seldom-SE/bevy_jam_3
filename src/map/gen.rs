@@ -194,7 +194,7 @@ impl StructureGen {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum FloorTile {
     #[default]
     Ground,

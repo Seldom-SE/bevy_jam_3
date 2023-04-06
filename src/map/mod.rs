@@ -332,10 +332,8 @@ fn spawn_chunk(
 
                 const PER_ROW: u32 = 32;
                 let is_water = |n_x, n_y| {
-                    matches!(
-                        chunk_data.get_floor_tile(x + n_x, y + n_y),
-                        gen::FloorTile::Water
-                    ) as u8
+                    let tile = chunk_data.get_floor_tile(x + n_x, y + n_y);
+                    (tile == gen::FloorTile::Water) as u8
                 };
 
                 let texture_index = match tile {
