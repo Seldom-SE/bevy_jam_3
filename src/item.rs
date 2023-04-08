@@ -1,3 +1,4 @@
+use bevy::ecs::system::SystemState;
 use enum_map::{enum_map, Enum, EnumMap};
 use rand::distributions::Standard;
 
@@ -6,6 +7,7 @@ use crate::{
     construct::{fuel_generator, spawn_construct, Assembler, PowerConsumer},
     player::{Action, Player},
     prelude::*,
+    stats::Hunger,
 };
 
 pub fn item_plugin(app: &mut App) {
@@ -198,6 +200,8 @@ fn update_item_image(
     }
 }
 
+const CANNED_FOOD_VALUE: f32 = 0.4;
+
 fn use_item(
     mut commands: Commands,
     interactions: Query<(Entity, &Interaction), (With<InventorySlot>, Changed<Interaction>)>,
@@ -220,7 +224,8 @@ fn use_item(
     match item {
         FuelTank => commands.add(fuel_generator(slot)),
         Generator | Assembler => commands.add(spawn_construct(slot, item.try_into().unwrap())),
-        Circuit | Metal | CannedFood | Plant => (),
+        CannedFood => commands.add(eat_food(slot, CANNED_FOOD_VALUE)),
+        Circuit | Metal | Plant => (),
     };
 }
 
@@ -377,5 +382,21 @@ fn craft_item(
 
         add_item(**recipe, &mut slots, inventory);
         return;
+    }
+}
+
+fn eat_food(slot: usize, value: f32) -> impl Fn(&mut World) {
+    move |world| {
+        let mut system_state = SystemState::<(
+            Query<&mut Hunger, With<Player>>,
+            Query<&mut InventorySlot>,
+            Query<&Inventory>,
+        )>::new(world);
+        let (mut players, mut slots, inventory) = system_state.get_mut(world);
+        let Ok(mut hunger) = players.get_single_mut() else { return };
+        **hunger += value;
+        **hunger = hunger.clamp(0., 1.);
+
+        remove_item_at(slot, &mut slots, inventory.single());
     }
 }
