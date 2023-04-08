@@ -2,7 +2,7 @@
 
 use std::f32::consts::TAU;
 
-use crate::prelude::*;
+use crate::{player::Player, prelude::*, stats::Radiation};
 
 pub fn day_night_plugin(app: &mut App) {
     app.add_startup_system(init).add_system(update);
@@ -29,6 +29,18 @@ fn init(mut commands: Commands) {
 
 const DAY_LENGTH: f32 = 50.;
 
-fn update(time: Res<Time>, mut skylights: Query<&mut Skylight2d>) {
-    //*skylights.single_mut() = sky_light((time.elapsed_seconds() / DAY_LENGTH).fract() * TAU);
+fn update(
+    time: Res<Time>,
+    mut skylights: Query<&mut Skylight2d>,
+    players: Query<&Radiation, With<Player>>,
+) {
+    let mut sky_light = sky_light((time.elapsed_seconds() / DAY_LENGTH).fract() * TAU);
+    if let Ok(radiation) = players.get_single() {
+        let radiation = ((**radiation * 1.3) - 0.3).max(0.);
+        sky_light.strength *= 1. + radiation;
+        sky_light.color.set_r(sky_light.color.r() * 1. - radiation);
+        sky_light.color.set_b(sky_light.color.b() * 1. - radiation);
+    }
+
+    *skylights.single_mut() = sky_light;
 }
