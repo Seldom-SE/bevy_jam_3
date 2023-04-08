@@ -15,7 +15,8 @@ pub fn player_plugin(app: &mut App) {
         .add_startup_system(init)
         .add_system(player_move)
         .add_system(update_cursor_pos)
-        .add_system(update_player_power);
+        .add_system(update_player_power)
+        .add_system(audio_follow_player);
 }
 
 #[derive(Actionlike, Clone)]
@@ -79,8 +80,8 @@ fn init(
             strength: 5.0,
             falloff: 0.45,
         },
-        AudioReceiver,
     ));
+    commands.spawn((AudioReceiver, SpatialBundle::default()));
 }
 
 fn player_move(
@@ -142,5 +143,16 @@ const RADIATION_POWER_THRESHOLD: f32 = 0.3;
 fn update_player_power(mut players: Query<(&mut PowerSource, &Radiation), With<Player>>) {
     for (mut power_source, radiation) in players.iter_mut() {
         **power_source = **radiation > RADIATION_POWER_THRESHOLD;
+    }
+}
+
+fn audio_follow_player(
+    mut audio_receivers: Query<&mut Transform, With<AudioReceiver>>,
+    players: Query<&Transform, (With<Player>, Without<AudioReceiver>)>,
+) {
+    if let Ok(player_transform) = players.get_single() {
+        if let Ok(mut audio_receiver_transform) = audio_receivers.get_single_mut() {
+            audio_receiver_transform.translation = player_transform.translation;
+        }
     }
 }
