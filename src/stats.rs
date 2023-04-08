@@ -67,7 +67,7 @@ pub struct Radiation(f32);
 
 impl Default for Radiation {
     fn default() -> Self {
-        Radiation(0.5)
+        Radiation(0.)
     }
 }
 
@@ -255,7 +255,7 @@ fn init_ui(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     parent.spawn((
                         TextBundle::from_section(
-                            "Radiation: 50",
+                            "Radiation: 0",
                             TextStyle {
                                 font,
                                 font_size: 40.0,

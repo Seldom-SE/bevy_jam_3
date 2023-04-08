@@ -488,15 +488,15 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
         while field.chance(Vec2::new(i, 0), ITEM_CHANCE) {
             i += 1;
 
-            let item: Item = ([
+            let item: Item = [
                 Item::Circuit,
                 Item::Metal,
                 Item::CannedFood,
                 Item::Plant,
                 Item::FuelTank,
-            ])[field.gen_range(Vec2::new(0, i), 0..=4) as usize];
+            ][field.gen_range(Vec2::new(0, i), 0..=4) as usize];
 
-            let p = Vec2::new(1, -1).map(|i| field.gen_f32(Vec2::new((1 + i) * i, 0)))
+            let p = Vec2::new(1, -1).map(|a| field.gen_f32(Vec2::new((1 + i) * a, 0)))
                 * (b.max - b.min - 2.0)
                 + b.min
                 + 1.0;
