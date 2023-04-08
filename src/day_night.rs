@@ -27,7 +27,7 @@ fn init(mut commands: Commands) {
     });
 }
 
-const DAY_LENGTH: f32 = 50.;
+const DAY_LENGTH: f32 = 500.;
 
 fn update(
     time: Res<Time>,

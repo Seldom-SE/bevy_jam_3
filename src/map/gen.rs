@@ -513,5 +513,16 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
         }
     }
 
+    let chunk_tile_pos = cpos * CHUNK_SIZE as i32;
+
+    for x in 0..CHUNK_SIZE as i32 {
+        for y in 0..CHUNK_SIZE as i32 {
+            let p = chunk_tile_pos + Vec2::new(x, y);
+            if p.distance_squared(Vec2::default()) > 300 * 300 {
+                chunk.set_wall(p, WallTile::Wall);
+            }
+        }
+    }
+
     chunk
 }
