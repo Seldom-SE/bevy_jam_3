@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use bevy::{ecs::system::EntityCommands, math::Vec3Swizzles, prelude::*};
+use rand::Rng;
 
 use crate::{
     map::as_object_vec3,
@@ -18,16 +19,31 @@ pub fn animation_plugin(app: &mut App) {
     app.register_type::<Animation>();
 }
 
-pub fn follow_player_test(
+#[derive(Component, Default, Deref, DerefMut)]
+struct WanderDirection(Option<Vec2>);
+
+fn follow_player_test(
     player: Query<&Transform, With<Player>>,
-    mut enemies: Query<(&Transform, &Stats, &mut Vel), Without<Player>>,
+    mut enemies: Query<(&Transform, &Stats, &mut Vel, &mut WanderDirection), Without<Player>>,
 ) {
     let Ok(player_transform) = player.get_single() else { return };
     let player_pos = player_transform.translation.xy();
-    for (transform, stats, mut vel) in enemies.iter_mut() {
+    let mut rng = rand::thread_rng();
+    for (transform, stats, mut vel, mut direction) in enemies.iter_mut() {
         let pos = transform.translation.xy();
-        if pos.distance_squared(player_pos) < 80.0 * 80.0 {
+        if pos.distance_squared(player_pos) < 256.0 * 256.0 {
+            **direction = None;
             vel.0 = (player_pos - pos).normalize_or_zero() * stats.get(Stat::Speed);
+        } else if let Some(dir) = **direction {
+            if rng.gen_bool(0.01) {
+                **direction = None;
+            } else {
+                vel.0 = dir.normalize_or_zero() * stats.get(Stat::Speed);
+            }
+        } else if rng.gen_bool(0.01) {
+            **direction = Some(
+                Vec2::new(rng.gen_range(-1.0..1.0), rng.gen_range(-1.0..1.0)).normalize_or_zero(),
+            );
         } else {
             vel.0 = Vec2::ZERO;
         }
@@ -214,6 +230,7 @@ pub fn spawn_slime<'w, 's, 'a>(
             playing: Playing::default(),
         },
         Vel::default(),
+        WanderDirection::default(),
     ))
 }
 
