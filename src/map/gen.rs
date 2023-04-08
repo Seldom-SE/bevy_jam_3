@@ -389,6 +389,7 @@ impl Default for ChunkData {
 
 const LAKES_SEED: u32 = 1001;
 const STRUCTURES_SEED: u32 = 1002;
+const ENEMY_CHANCE: f32 = 0.8;
 
 pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
     let cpos = Vec2::from(cpos.to_array());
@@ -435,7 +436,7 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
         }
 
         let mut i = 1;
-        while field.chance(Vec2::new(i, 0), ITEM_CHANCE) {
+        while field.chance(Vec2::new(i, 0), ENEMY_CHANCE) {
             i += 1;
 
             let p = Vec2::new(1, -1).map(|i| field.gen_f32(Vec2::new((1 + i) * i, 0)))

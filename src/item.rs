@@ -75,36 +75,21 @@ impl Default for Recipes {
 }
 
 fn init_inventory(mut commands: Commands, assets: Res<GameAssets>) {
-    let inventory = Inventory(
-        [
-            // TEMP Convenient testing items
-            Some(Item::Assembler),
-            Some(Item::Generator),
-            Some(Item::FuelTank),
-            Some(Item::Circuit),
-            Some(Item::Metal),
-            Some(Item::Metal),
-            None,
-            None,
-            None,
-            None,
-        ]
-        .map(|item| {
-            commands
-                .spawn((
-                    ButtonBundle {
-                        style: Style {
-                            size: Size::all(Val::Px(64.)),
-                            ..default()
-                        },
-                        image: assets.empty_item.clone().into(),
+    let inventory = Inventory([None; 10].map(|item| {
+        commands
+            .spawn((
+                ButtonBundle {
+                    style: Style {
+                        size: Size::all(Val::Px(64.)),
                         ..default()
                     },
-                    InventorySlot(item),
-                ))
-                .id()
-        }),
-    );
+                    image: assets.empty_item.clone().into(),
+                    ..default()
+                },
+                InventorySlot(item),
+            ))
+            .id()
+    }));
 
     commands
         .spawn(NodeBundle {

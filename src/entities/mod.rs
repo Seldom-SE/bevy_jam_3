@@ -7,7 +7,7 @@ use crate::{
     map::as_object_vec3,
     physics::Vel,
     player::Player,
-    stats::{Stat, StatBundle, Stats},
+    stats::{RadiationSource, Stat, StatBundle, Stats},
 };
 use enum_map::enum_map;
 
@@ -231,6 +231,11 @@ pub fn spawn_slime<'w, 's, 'a>(
         },
         Vel::default(),
         WanderDirection::default(),
+        RadiationSource {
+            strength: 0.04,
+            radius: 128.,
+            active: true,
+        },
     ))
 }
 
