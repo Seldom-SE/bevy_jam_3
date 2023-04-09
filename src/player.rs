@@ -1,6 +1,7 @@
 use crate::{
     camera::PlayerCamera,
     construct::PowerSource,
+    entities::EnemyBullet,
     map::as_object_vec3,
     physics::Vel,
     prelude::*,
@@ -16,7 +17,8 @@ pub fn player_plugin(app: &mut App) {
         .add_system(player_move)
         .add_system(update_cursor_pos)
         .add_system(update_player_power)
-        .add_system(audio_follow_player);
+        .add_system(audio_follow_player)
+        .add_system(player_hit_bullets);
 }
 
 #[derive(Actionlike, Clone)]
@@ -153,6 +155,24 @@ fn audio_follow_player(
     if let Ok(player_transform) = players.get_single() {
         if let Ok(mut audio_receiver_transform) = audio_receivers.get_single_mut() {
             audio_receiver_transform.translation = player_transform.translation;
+        }
+    }
+}
+
+fn player_hit_bullets(
+    mut commands: Commands,
+    mut players: Query<(&mut Radiation, &Transform), With<Player>>,
+    bullets: Query<(Entity, &Transform), With<EnemyBullet>>,
+) {
+    for (mut radiation, transform) in &mut players {
+        for (bullet, bullet_transform) in &bullets {
+            if (transform.translation.truncate() - bullet_transform.translation.truncate())
+                .length_squared()
+                < 30. * 30.
+            {
+                **radiation += 0.1;
+                commands.entity(bullet).despawn();
+            }
         }
     }
 }

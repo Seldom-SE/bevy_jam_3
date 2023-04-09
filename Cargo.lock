@@ -220,6 +220,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8da52d66c7071e2e3fa2a1e5c6d088fec47b593032b254f5e980de8ea54454d6"
 
 [[package]]
+name = "as-dyn-trait"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c10e6725b3055c298c14e70a059d1d0fee82147fa4b6100fa063c4aebb2e711"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "ash"
 version = "0.37.2+1.3.238"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -751,6 +762,7 @@ dependencies = [
  "leafwing-input-manager",
  "rand",
  "seldom_fn_plugin",
+ "seldom_state",
  "vek",
 ]
 
@@ -3226,6 +3238,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fe39c9c3154c4f55410e499f0fa4473868536a4b281d38d4b7cc775ea5a0182"
 dependencies = [
  "bevy",
+]
+
+[[package]]
+name = "seldom_state"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18fd9eb42aeb1d6d38d38ab2e89c10a817a698ac31fb63c4ba19fcfca948da1d"
+dependencies = [
+ "as-dyn-trait",
+ "bevy",
+ "seldom_fn_plugin",
 ]
 
 [[package]]

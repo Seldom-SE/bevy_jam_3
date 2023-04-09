@@ -15,6 +15,7 @@ pub struct GameAssets {
     pub generators: [Handle<Image>; 5],
     pub assemblers: [Handle<Image>; 2],
     pub assembler_sound: Handle<AudioSource>,
+    pub nuclear_bullet: Handle<Image>,
 }
 
 fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -47,5 +48,6 @@ fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
         ],
         assemblers: [assembler_off, assembler_on],
         assembler_sound: asset_server.load("sound/engine.ogg"),
+        nuclear_bullet: asset_server.load("art/nuclear_bullet.png"),
     })
 }

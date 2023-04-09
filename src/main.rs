@@ -88,4 +88,5 @@ mod prelude {
     pub use leafwing_input_manager::prelude::*;
     pub use rand::prelude::*;
     pub use seldom_fn_plugin::FnPluginExt;
+    pub use seldom_state::prelude::*;
 }
