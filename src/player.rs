@@ -140,7 +140,7 @@ fn update_cursor_pos(
     }
 }
 
-const RADIATION_POWER_THRESHOLD: f32 = 0.3;
+const RADIATION_POWER_THRESHOLD: f32 = 0.6;
 
 fn update_player_power(mut players: Query<(&mut PowerSource, &Radiation), With<Player>>) {
     for (mut power_source, radiation) in players.iter_mut() {

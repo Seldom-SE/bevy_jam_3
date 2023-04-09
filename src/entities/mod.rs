@@ -326,7 +326,7 @@ fn spawn_rustache<'w, 's, 'a>(
             .trans_builder::<Idle, _, _>(NearPlayer(256.), |&player| Some(Follow(player)))
             .insert_on_enter::<Follow>(PlayAnimation(2, 3))
             .trans::<Follow>(NotTrigger(NearPlayer(384.)), Idle)
-            .trans_builder::<Follow, _, _>(NearPlayer(128.), |&player| {
+            .trans_builder::<Follow, _, _>(NearPlayer(192.), |&player| {
                 Some(Fire {
                     target: player,
                     cooldown: 1.5,
