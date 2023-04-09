@@ -18,6 +18,7 @@ pub struct GameAssets {
     pub assembler_sound: Handle<AudioSource>,
     pub nuclear_bullet: Handle<Image>,
     pub turret_bullet: Handle<Image>,
+    pub player: [Handle<Image>; 4],
 }
 
 fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -62,5 +63,11 @@ fn load(mut commands: Commands, asset_server: Res<AssetServer>) {
         assembler_sound: asset_server.load("sound/engine.ogg"),
         nuclear_bullet: asset_server.load("art/nuclear_bullet.png"),
         turret_bullet: asset_server.load("art/turret_bullet.png"),
+        player: [
+            asset_server.load("art/player/north_east.png"),
+            asset_server.load("art/player/north_west.png"),
+            asset_server.load("art/player/south_east.png"),
+            asset_server.load("art/player/south_west.png"),
+        ],
     })
 }

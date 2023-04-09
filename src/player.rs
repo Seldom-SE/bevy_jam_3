@@ -1,4 +1,7 @@
+use std::cmp::Ordering;
+
 use crate::{
+    asset::GameAssets,
     camera::PlayerCamera,
     construct::PowerSource,
     entities::EnemyBullet,
@@ -30,30 +33,15 @@ pub enum Action {
 #[derive(Component)]
 pub struct Player;
 
-fn init(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    mut atlases: ResMut<Assets<TextureAtlas>>,
-) {
-    let player_image = assets.load("art/player.png");
-    let mut player_atlas = TextureAtlas::new_empty(player_image, Vec2::new(24.0, 24.0));
-
-    let player_rect_1 = player_atlas.add_texture(Rect {
-        min: Vec2::new(0.0, 0.0),
-        max: Vec2::new(24.0, 24.0),
-    });
-
-    let texture_atlas_handle = atlases.add(player_atlas);
-
+fn init(mut commands: Commands, assets: Res<GameAssets>) {
     commands.spawn((
-        SpriteSheetBundle {
+        SpriteBundle {
             transform: Transform {
                 translation: as_object_vec3(Vec2::splat(0.)),
-                scale: Vec2::splat(0.2).extend(0.),
+                scale: Vec2::splat(2.).extend(0.),
                 ..default()
             },
-            sprite: TextureAtlasSprite::new(player_rect_1),
-            texture_atlas: texture_atlas_handle,
+            texture: assets.player[2].clone(),
             ..default()
         },
         InputManagerBundle::<Action> {
@@ -86,12 +74,39 @@ fn init(
     commands.spawn((AudioReceiver, SpatialBundle::default()));
 }
 
+struct CurrDirection {
+    north: bool,
+    east: bool,
+}
+
+impl Default for CurrDirection {
+    fn default() -> Self {
+        Self {
+            north: false,
+            east: true,
+        }
+    }
+}
+
 fn player_move(
-    mut players: Query<(&mut Vel, &Transform, &Stats, &ActionState<Action>), With<Player>>,
+    mut players: Query<
+        (
+            &mut Vel,
+            &mut Handle<Image>,
+            &Transform,
+            &Stats,
+            &ActionState<Action>,
+        ),
+        With<Player>,
+    >,
     mut cameras: Query<&mut Transform, (With<PlayerCamera>, Without<Player>)>,
     time: Res<Time>,
+    assets: Res<GameAssets>,
+    mut curr_direction: Local<CurrDirection>,
 ) {
-    let Ok((mut vel, transform, stats, state)) = players.get_single_mut() else { return };
+    let Ok((mut vel, mut image, transform, stats, state)) = players.get_single_mut() else {
+        return
+    };
 
     if state.pressed(Action::Move) {
         vel.0 = state
@@ -104,6 +119,41 @@ fn player_move(
     } else {
         vel.0 = Vec2::ZERO;
     }
+
+    let new_direction = CurrDirection {
+        north: match vel.0.y.partial_cmp(&0.0) {
+            Some(Ordering::Greater) => true,
+            Some(Ordering::Less) => false,
+            _ => curr_direction.north,
+        },
+        east: match vel.0.x.partial_cmp(&0.0) {
+            Some(Ordering::Greater) => true,
+            Some(Ordering::Less) => false,
+            _ => curr_direction.east,
+        },
+    };
+
+    *image = assets.player[match new_direction {
+        CurrDirection {
+            north: true,
+            east: true,
+        } => 0,
+        CurrDirection {
+            north: true,
+            east: false,
+        } => 1,
+        CurrDirection {
+            north: false,
+            east: true,
+        } => 2,
+        CurrDirection {
+            north: false,
+            east: false,
+        } => 3,
+    }]
+    .clone();
+
+    *curr_direction = new_direction;
 
     let camera_translation = &mut cameras.single_mut().translation;
     let target = transform
