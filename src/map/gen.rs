@@ -1,13 +1,13 @@
 use std::ops::RangeInclusive;
 
-use crate::{construct::Construct, entities::Enemy, item::Item, map::TILE_SIZE};
+use crate::{construct::Construct, entities::Enemy, item::Item};
 
 use super::CHUNK_SIZE;
 
 use vek::*;
 
-const ITEM_CHANCE: f32 = 0.6;
-const ASSEMBLER_CHANCE: f32 = 0.3;
+const ITEM_CHANCE: f32 = 0.7;
+const ASSEMBLER_CHANCE: f32 = 0.5;
 
 #[derive(Clone, Copy)]
 pub struct RandomField(pub u32);
@@ -490,10 +490,12 @@ pub fn gen_chunk(cpos: bevy::prelude::IVec2, seed: u32) -> ChunkData {
 
             let item: Item = [
                 Item::Circuit,
+                Item::Circuit,
+                Item::Metal,
                 Item::Metal,
                 Item::CannedFood,
-                Item::Plant,
                 Item::FuelTank,
+                Item::Plant,
             ][field.gen_range(Vec2::new(0, i), 0..=4) as usize];
 
             let p = Vec2::new(1, -1).map(|a| field.gen_f32(Vec2::new((1 + i) * a, 0)))

@@ -78,7 +78,7 @@ pub struct RadiationSource {
     pub active: bool,
 }
 
-fn stat_propegation(
+pub fn stat_propegation(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Stats, &mut Health, &Hunger, &mut Radiation)>,
     time: Res<Time>,

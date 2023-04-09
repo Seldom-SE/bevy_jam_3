@@ -9,7 +9,7 @@ use crate::{
     physics::{DespawnOnCollide, Vel},
     player::Player,
     prelude::*,
-    stats::{RadiationSource, Stat, StatBundle, Stats},
+    stats::{stat_propegation, RadiationSource, Stat, StatBundle, Stats},
 };
 use enum_map::enum_map;
 
@@ -21,7 +21,11 @@ pub fn animation_plugin(app: &mut App) {
         .add_system(animation)
         .add_system(follow_player_test)
         .add_system(spawn_rustaches)
-        .add_system(update_facing.before(play_animation))
+        .add_systems(
+            (update_facing, apply_system_buffers)
+                .chain()
+                .before(stat_propegation),
+        )
         .add_system(play_animation)
         .add_system(wander)
         .add_system(follow)
@@ -232,6 +236,9 @@ fn animation(
     }
 }
 
+#[derive(Component)]
+pub struct EnemyMarker;
+
 pub fn spawn_slime<'w, 's, 'a>(
     position: Vec2,
     commands: &'a mut Commands<'w, 's>,
@@ -270,6 +277,7 @@ pub fn spawn_slime<'w, 's, 'a>(
             radius: 128.,
             active: true,
         },
+        EnemyMarker,
     ))
 }
 
@@ -334,6 +342,7 @@ fn spawn_rustache<'w, 's, 'a>(
             true => Facing::Left,
             false => Facing::Right,
         },
+        EnemyMarker,
     ))
 }
 
@@ -501,9 +510,8 @@ fn update_facing(
                             .map(|&Follow(target)| target)
                             .unwrap_or_else(|| fire.unwrap().target),
                     )
-                    .unwrap()
-                    .translation
-                    .x
+                    .map(|target_transform| target_transform.translation.x)
+                    .unwrap_or(0.)
                     - match transforms.get(entity) {
                         Ok(transform) => transform.translation.x,
                         Err(_) => 0.0,
@@ -540,7 +548,7 @@ fn play_animation(
 }
 
 #[derive(Component)]
-enum Facing {
+pub enum Facing {
     Left,
     Right,
 }
@@ -561,7 +569,7 @@ fn spawn_rustaches(
     }
     **timer -= 1.;
 
-    if thread_rng().gen_bool(1. / (time.elapsed_seconds_f64() / 120. + 1.).sqrt()) {
+    if thread_rng().gen_bool(1. / (time.elapsed_seconds_f64() / 400. + 1.).sqrt()) {
         return;
     }
 
@@ -570,7 +578,7 @@ fn spawn_rustaches(
 }
 
 #[derive(Component, Deref, DerefMut)]
-struct Lifetime(f32);
+pub struct Lifetime(pub f32);
 
 fn lifetime(
     mut commands: Commands,

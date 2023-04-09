@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy::ecs::system::SystemState;
+use bevy::{ecs::system::SystemState, math::Vec3Swizzles};
 use bevy_kira_audio::{
     prelude::AudioEmitter, Audio, AudioControl, AudioEasing, AudioInstance, AudioTween,
 };
@@ -9,24 +9,30 @@ use enum_map::Enum;
 use crate::{
     asset::GameAssets,
     ecs::DynBundle,
+    entities::{EnemyMarker, Facing, Lifetime},
     item::{remove_item_at, Inventory, InventorySlot, Item, INTERACT_RADIUS},
     map::as_object_vec3,
+    physics::{DespawnOnCollide, Vel},
     player::Player,
     prelude::*,
-    stats::RadiationSource,
+    stats::{Health, RadiationSource},
 };
 
 pub fn construct_plugin(app: &mut App) {
     app.add_system(update_generators)
         .add_system(update_generator_sprites)
         .add_system(set_power)
-        .add_system(update_assemblers);
+        .add_system(update_assemblers)
+        .add_system(update_turret_sprites)
+        .add_system(turret_shoot)
+        .add_system(enemies_hit_bullets);
 }
 
 #[derive(Clone, Component, Copy, Enum)]
 pub enum Construct {
     Generator,
     Assembler,
+    Turret,
 }
 
 impl TryFrom<Item> for Construct {
@@ -36,6 +42,7 @@ impl TryFrom<Item> for Construct {
         match item {
             Item::Generator => Ok(Construct::Generator),
             Item::Assembler => Ok(Construct::Assembler),
+            Item::Turret => Ok(Construct::Turret),
             _ => Err(()),
         }
     }
@@ -70,6 +77,12 @@ impl Construct {
                 },
             )) as Box<dyn DynBundle>,
             Construct::Assembler => Box::new((common, Assembler, PowerConsumer::default())),
+            Construct::Turret => Box::new((
+                common,
+                Turret::default(),
+                PowerConsumer::default(),
+                Facing::Left,
+            )),
         }
     }
 }
@@ -81,6 +94,11 @@ struct Generator {
 
 #[derive(Component)]
 pub struct Assembler;
+
+#[derive(Component, Default)]
+pub struct Turret {
+    timer: f32,
+}
 
 #[derive(Component, Default)]
 pub struct PowerConsumer {
@@ -187,6 +205,85 @@ fn update_generator_sprites(
     }
 }
 
+fn update_turret_sprites(
+    mut turrets: Query<
+        (&mut Handle<Image>, &Facing, &PowerConsumer),
+        Or<(Changed<Turret>, Changed<PowerConsumer>)>,
+    >,
+    assets: Res<GameAssets>,
+) {
+    for (mut sprite, turret, consumer) in &mut turrets {
+        *sprite = match (turret, consumer.source.is_some()) {
+            (Facing::Left, false) => assets.turrets[0].clone(),
+            (Facing::Left, true) => assets.turrets[1].clone(),
+            (Facing::Right, false) => assets.turrets[2].clone(),
+            (Facing::Right, true) => assets.turrets[3].clone(),
+        }
+    }
+}
+
+#[derive(Component)]
+struct FriendlyBullet;
+
+fn turret_shoot(
+    mut commands: Commands,
+    mut turrets: Query<(&Transform, &PowerConsumer, &mut Facing, &mut Turret)>,
+    enemies: Query<&Transform, With<EnemyMarker>>,
+    assets: Res<GameAssets>,
+    time: Res<Time>,
+) {
+    for (&transform, consumer, mut facing, mut turret) in &mut turrets {
+        if consumer.source.is_none() {
+            turret.timer = 0.;
+            continue;
+        }
+
+        turret.timer += time.delta_seconds();
+
+        if turret.timer < 1. {
+            continue;
+        }
+        turret.timer = 0.;
+
+        let mut closest = None;
+        let mut closest_distance = f32::INFINITY;
+
+        let pos = transform.translation.xy();
+
+        for enemy_transform in &enemies {
+            let enemy_pos = enemy_transform.translation.xy();
+            let distance = pos.distance_squared(enemy_pos);
+
+            if distance < closest_distance {
+                closest = Some(enemy_pos);
+                closest_distance = distance;
+                *facing = match enemy_pos.x < pos.x {
+                    true => Facing::Left,
+                    false => Facing::Right,
+                };
+            }
+        }
+
+        if closest_distance > 192. * 192. {
+            continue;
+        }
+
+        let Some(closest) = closest else { continue };
+
+        commands.spawn((
+            SpriteBundle {
+                texture: assets.turret_bullet.clone(),
+                transform,
+                ..default()
+            },
+            Vel((closest - pos).normalize_or_zero() * 500.),
+            Lifetime(5.),
+            DespawnOnCollide,
+            FriendlyBullet,
+        ));
+    }
+}
+
 const POWER_RANGE: f32 = 128.;
 
 // Optimize this if it gets laggy
@@ -215,7 +312,7 @@ fn set_power(
 fn update_assemblers(
     mut consumers: Query<
         (&PowerConsumer, &mut Handle<Image>, &mut AudioEmitter),
-        Changed<PowerConsumer>,
+        (Changed<PowerConsumer>, With<Assembler>),
     >,
     assets: Res<GameAssets>,
     audio: Res<Audio>,
@@ -242,5 +339,23 @@ fn update_assemblers(
             }
             _ => {}
         };
+    }
+}
+
+fn enemies_hit_bullets(
+    mut commands: Commands,
+    mut enemies: Query<(&mut Health, &Transform), With<EnemyMarker>>,
+    bullets: Query<(Entity, &Transform), With<FriendlyBullet>>,
+) {
+    for (mut health, transform) in &mut enemies {
+        for (bullet, bullet_transform) in &bullets {
+            if (transform.translation.truncate() - bullet_transform.translation.truncate())
+                .length_squared()
+                < 30. * 30.
+            {
+                **health -= 0.4;
+                commands.entity(bullet).despawn();
+            }
+        }
     }
 }

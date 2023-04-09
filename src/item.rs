@@ -31,6 +31,7 @@ pub enum Item {
     FuelTank,
     Generator,
     Assembler,
+    Turret,
 }
 
 impl Distribution<Item> for Standard {
@@ -68,8 +69,9 @@ impl Default for Recipes {
     fn default() -> Self {
         Self(enum_map! {
             Item::Circuit | Item::Metal | Item::CannedFood | Item::Plant | Item::FuelTank => None,
-            Item::Generator => Some(vec![(Item::Circuit, 1), (Item::Metal, 2)]),
-            Item::Assembler => Some(vec![(Item::Circuit, 2), (Item::Metal, 1)]),
+            Item::Generator => Some(vec![(Item::Metal, 1)]),
+            Item::Assembler => Some(vec![(Item::Circuit, 1)]),
+            Item::Turret => Some(vec![(Item::Circuit, 1), (Item::Metal, 1)]),
         })
     }
 }
@@ -208,7 +210,9 @@ fn use_item(
     let Some(item) = **slots.get(slot_entity).unwrap() else { return };
     match item {
         FuelTank => commands.add(fuel_generator(slot)),
-        Generator | Assembler => commands.add(spawn_construct(slot, item.try_into().unwrap())),
+        Generator | Assembler | Turret => {
+            commands.add(spawn_construct(slot, item.try_into().unwrap()))
+        }
         CannedFood => commands.add(eat_food(slot, CANNED_FOOD_VALUE)),
         Circuit | Metal | Plant => (),
     };
