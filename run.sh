@@ -2,8 +2,8 @@
 
 set -x
 
-cargo build --target wasm32-unknown-unknown
-wasm-bindgen --out-dir out --target web target/wasm32-unknown-unknown/debug/bevy_jam_3.wasm
+cargo build --target wasm32-unknown-unknown --release
+wasm-bindgen --out-dir out --target web target/wasm32-unknown-unknown/release/bevy_jam_3.wasm
 rm -rf out/assets
 cp -R assets out/assets
 xdg-open "http://0.0.0.0:8080" &

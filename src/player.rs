@@ -12,6 +12,7 @@ use crate::{
 };
 use bevy_kira_audio::prelude::AudioReceiver;
 use enum_map::enum_map;
+use leafwing_input_manager::user_input::InputKind;
 
 pub fn player_plugin(app: &mut App) {
     app.add_plugin(InputManagerPlugin::<Action>::default())
@@ -46,7 +47,15 @@ fn init(mut commands: Commands, assets: Res<GameAssets>) {
         },
         InputManagerBundle::<Action> {
             input_map: InputMap::default()
-                .insert(VirtualDPad::wasd(), Action::Move)
+                .insert(
+                    VirtualDPad {
+                        up: InputKind::Keyboard(KeyCode::W),
+                        down: InputKind::Keyboard(KeyCode::S),
+                        left: InputKind::Keyboard(KeyCode::A),
+                        right: InputKind::Keyboard(KeyCode::D),
+                    },
+                    Action::Move,
+                )
                 .insert(DualAxis::left_stick(), Action::Move)
                 .insert(KeyCode::Space, Action::Collect)
                 .insert(GamepadButtonType::South, Action::Collect)
